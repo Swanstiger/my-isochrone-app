@@ -11,6 +11,7 @@
             margin: 0;
             font-family: Arial, sans-serif;
             height: 100vh;
+            overflow: hidden; /* Esto previene el desbordamiento */
         }
         #controls {
             width: 16.67%; /* 1/6 del ancho */
@@ -21,31 +22,25 @@
         #map {
             width: 66.66%; /* 2/3 del ancho */
             height: 100vh;
+            flex-grow: 1;
         }
-        #isochroneTable {
+        #infoPanel {
             width: 16.67%; /* 1/6 del ancho */
+            background-color: #f9f9f9;
+            padding: 10px;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
             height: 100vh;
-            border-collapse: collapse;
-            border: 1px solid #ccc;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
+            display: none; /* Ocultar panel al principio */
         }
-        #isochroneTable thead {
-            background-color: #f4f4f4;
-            position: sticky;
-            top: 0;
-            z-index: 1;
+        #infoPanel h2 {
+            margin-top: 0;
         }
-        #isochroneTable th,
-        #isochroneTable td {
-            padding: 8px;
-            text-align: left;
-            border: 1px solid #ccc;
+        .isochrone-info {
+            margin-bottom: 10px;
         }
-        #isochroneTable tbody {
-            flex: 1;
-            overflow-y: auto;
+        .isochrone-info span {
+            font-weight: bold;
         }
         label {
             font-size: 14px;
@@ -71,28 +66,15 @@
             <option value="foot-walking">A pie</option>
         </select>
         
-        <label for="range-type">Tipo de rango:</label>
-        <select id="range-type">
-            <option value="time">Tiempo</option>
-            <option value="distance">Distancia</option>
-        </select>
-        
         <button onclick="generateIsochrones()">Crear Isocronas</button>
     </div>
 
     <div id="map"></div>
 
-    <table id="isochroneTable">
-        <thead>
-            <tr>
-                <th>Isocrona (minutos)</th>
-                <th>Población Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Las filas de las isocronas se agregarán aquí -->
-        </tbody>
-    </table>
+    <div id="infoPanel">
+        <h2>Detalles de las Isocronas</h2>
+        <!-- La información de las isocronas se mostrará aquí -->
+    </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="js/app.js"></script>

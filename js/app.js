@@ -9,7 +9,7 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 // Variables para punto y capas de isocronas
 let currentPoint = null;
 let isochronesLayer; // Definir la capa globalmente
-const tableBody = document.querySelector("#isochroneTable tbody"); // Agrega esta línea
+const infoPanel = document.getElementById("infoPanel"); // El panel lateral
 
 // Función para eliminar el punto y las isocronas
 function removePoint(marker) {
@@ -45,119 +45,138 @@ map.on("click", function (event) {
 });
 
 async function generateIsochrones() {
-    if (!currentPoint) {
-        alert("Por favor, selecciona un punto en el mapa.");
-        return;
+  if (!currentPoint) {
+    alert("Por favor, selecciona un punto en el mapa.");
+    return;
+  }
+
+  const input = document.getElementById("isochroneInput").value;
+  const transportMode = document.getElementById("transport-mode").value;
+
+  if (!input) {
+    alert("Por favor, introduce los valores de las isocronas en minutos.");
+    return;
+  }
+
+  if (!transportMode) {
+    alert("Por favor, selecciona el modo de transporte.");
+    return;
+  }
+
+ // Define los factores de tráfico según el modo de transporte
+ let trafficFactor;
+ if (transportMode === "driving-car") {
+   trafficFactor = 0.55; // Factor para coche
+ } else if (transportMode === "foot-walking") {
+   trafficFactor = 0.85; // Factor para caminar
+ } else {
+   trafficFactor = 1; // Sin ajuste para otros modos
+ }
+
+
+
+
+  const ranges = input
+    .split(",")
+    .map((value) => parseInt(value.trim()))
+    .filter((value) => !isNaN(value) && value > 0)
+    .map((minute) => minute * 60 * trafficFactor);
+
+  if (ranges.length === 0) {
+    alert("Por favor, introduce valores válidos de isocronas.");
+    return;
+  }
+
+  const coordinates = currentPoint.getLatLng();
+
+  try {
+    const url = `https://api.openrouteservice.org/v2/isochrones/${transportMode}`;
+    const trafficFactor = 0.65;
+    const body = JSON.stringify({
+      locations: [[coordinates.lng, coordinates.lat]],
+      range: ranges, // Multiplicamos por 60 para convertir los minutos a segundos
+      smoothing:0,
+      range_type: "time", // Fijamos el tipo de rango a "time"
+      attributes: ["total_pop"]
+    });
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: apiKey
+      },
+      body: body
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error en la API: ${response.status} - ${response.statusText}`);
     }
 
-    const input = document.getElementById("isochroneInput").value;
-    const transportMode = document.getElementById("transport-mode").value;
-    const rangeType = document.getElementById("range-type").value;
+    const data = await response.json();
 
-    if (!input) {
-        alert("Por favor, introduce los valores de las isocronas en minutos.");
-        return;
+    // Limpia las capas anteriores y los contenidos del panel
+    if (isochronesLayer) {
+      map.removeLayer(isochronesLayer);
     }
+    infoPanel.innerHTML = "<h2>Detalles de las Isocronas</h2>"; // Limpiar el panel antes de agregar nueva información
 
-    if (!transportMode || !rangeType) {
-        alert("Por favor, selecciona el modo de transporte y el tipo de rango.");
-        return;
-    }
-
-    const ranges = input
-        .split(",")
-        .map((value) => parseInt(value.trim()))
-        .filter((value) => !isNaN(value) && value > 0);
-
-    if (ranges.length === 0) {
-        alert("Por favor, introduce valores válidos de isocronas.");
-        return;
-    }
-
-    const coordinates = currentPoint.getLatLng();
-
-    try {
-        const url = `https://api.openrouteservice.org/v2/isochrones/${transportMode}`;
-        const body = JSON.stringify({
-            locations: [[coordinates.lng, coordinates.lat]],
-            range: ranges.map((minute) => minute * 60),
-            smoothing : 0.5 ,
-            range_type: rangeType,
-            attributes: ["total_pop"]
-        });
-
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: apiKey
-            },
-            body: body
-        });
-
-        if (!response.ok) {
-            throw new Error(`Error en la API: ${response.status} - ${response.statusText}`);
+    // Crea una nueva capa para las isocronas
+    isochronesLayer = L.layerGroup();
+    data.features.forEach(({ properties: { total_pop }, geometry }, index) => {
+      const color = getColorForRange(index, ranges.length);
+      const duration = ranges[index] / 60|| "Desconocido";
+      
+      const layer = L.geoJSON({ type: "Feature", geometry }, {
+        style: {
+          fillColor: color,
+          weight: 1,
+          opacity: 1,
+          color: color,
+          fillOpacity: 0.4
         }
+      }).bindPopup(`Isocrona: ${duration} minutos<br>Población Total: ${total_pop || "No disponible"}`);
 
-        const data = await response.json();
+      layer.addTo(isochronesLayer);
+      addInfoToPanel(duration, total_pop || "No disponible");
+    });
 
-        // Limpia las capas anteriores y las filas de la tabla
-        if (isochronesLayer) {
-            map.removeLayer(isochronesLayer);
-        }
-        tableBody.innerHTML = "";
+    isochronesLayer.addTo(map);
 
-        // Crea una nueva capa para las isocronas
-        isochronesLayer = L.layerGroup();
-        data.features.forEach(({ properties: { total_pop }, geometry }, index) => {
-            const color = getColorForRange(index, ranges.length);
-            const duration = ranges[index] || "Desconocido";
-            
-            const layer = L.geoJSON({ type: "Feature", geometry }, {
-                style: {
-                    fillColor: color,
-                    weight: 1,
-                    opacity: 1,
-                    color: color,
-                    fillOpacity: 0.4
-                }
-            }).bindPopup(`Isocrona: ${duration} minutos<br>Población Total: ${total_pop || "No disponible"}`);
-
-            layer.addTo(isochronesLayer);
-            addRowToTable(duration, total_pop || "No disponible");
-        });
-
-        isochronesLayer.addTo(map);
-    } catch (error) {
-        alert(`Error al generar las isocronas: ${error.message}`);
-        console.error(error); // Para depuración
-    }
+    // Mostrar el panel lateral
+    infoPanel.style.display = "block";
+  } catch (error) {
+    alert(`Error al generar las isocronas: ${error.message}`);
+    console.error(error); // Para depuración
+  }
 }
 
-// Función para agregar filas a la tabla
-function addRowToTable(duration, population) {
-    const row = document.createElement("tr");
-    const durationCell = document.createElement("td");
-    const populationCell = document.createElement("td");
+// Función para agregar la información al panel
+function addInfoToPanel(duration, population) {
+  const infoDiv = document.createElement("div");
+  infoDiv.classList.add("isochrone-info");
 
-    durationCell.textContent = `${duration} minutos`;
-    populationCell.textContent = population || "No disponible";
+  const durationSpan = document.createElement("span");
+  durationSpan.textContent = `Isocrona: ${duration} minutos - `;
+  infoDiv.appendChild(durationSpan);
 
-    row.appendChild(durationCell);
-    row.appendChild(populationCell);
-    tableBody.appendChild(row);
+  const populationSpan = document.createElement("span");
+  populationSpan.textContent = `Población total: ${population}`;
+  infoDiv.appendChild(populationSpan);
+
+  infoPanel.appendChild(infoDiv);
 }
 
-// Función para asignar colores
+// Función para obtener un color basado en el índice de la isocrona
 function getColorForRange(index, totalRanges) {
-  const colors = [
-    "#FF0000",
-    "#FF7F00",
-    "#FFFF00",
-    "#7FFF00",
-    "#00FF00",
-    "#00FFFF",
-    "#0000FF"
+  const colorScale = [
+    "#FF0000", // rojo
+    "#FF7F00", // naranja
+    "#FFFF00", // amarillo
+    "#00FF00", // verde
+    "#0000FF", // azul
+    "#800080"  // púrpura
   ];
-  return colors[index % colors.length];
+
+  return colorScale[index % colorScale.length];
 }

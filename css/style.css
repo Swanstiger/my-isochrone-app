@@ -1,25 +1,35 @@
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
+#isochroneTable {
+    width: 100%; /* La tabla ocupará todo el ancho disponible */
+    height: 100vh;
+    border-collapse: collapse;
+    overflow-y: auto;
+    display: block; /* Cambiado a block para permitir que la tabla sea flexible */
 }
 
-#map {
-    width: 100%;
-    height: 80vh;
-}
-
-#controls {
-    padding: 10px;
-    background-color: #fff;
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    z-index: 999;
-}
-
-#controls input {
+#isochroneTable th,
+#isochroneTable td {
     padding: 8px;
-    width: 300px;
-    margin-right: 10px;
+    text-align: left;
+    border: 1px solid #ccc;
+    word-wrap: break-word; /* Para que las celdas se ajusten y no se desborden */
+    max-width: 200px; /* Máximo ancho para las celdas */
+    text-overflow: ellipsis; /* Si el texto es largo, se agregará un "..." */
+    white-space: nowrap; /* Impide que el texto se divida en varias líneas */
+}
+
+#isochroneTable thead {
+    background-color: #f4f4f4;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+#isochroneTable tbody {
+    display: block;
+    max-height: 90vh; /* Altura máxima de la tabla, permitiendo desplazamiento */
+    overflow-y: auto;
+}
+
+#isochroneTable th {
+    font-weight: bold;
 }
