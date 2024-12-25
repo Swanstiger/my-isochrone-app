@@ -1,35 +1,64 @@
 #isochroneTable {
-    width: 100%; /* La tabla ocupará todo el ancho disponible */
-    height: 100vh;
+    width: 100%; /* Ocupa todo el ancho disponible */
     border-collapse: collapse;
+    display: block; /* Permite manejar el desbordamiento en tablas largas */
     overflow-y: auto;
-    display: block; /* Cambiado a block para permitir que la tabla sea flexible */
+    margin-top: 10px; /* Separación de otros elementos */
 }
 
 #isochroneTable th,
 #isochroneTable td {
-    padding: 8px;
-    text-align: left;
-    border: 1px solid #ccc;
-    word-wrap: break-word; /* Para que las celdas se ajusten y no se desborden */
-    max-width: 200px; /* Máximo ancho para las celdas */
-    text-overflow: ellipsis; /* Si el texto es largo, se agregará un "..." */
-    white-space: nowrap; /* Impide que el texto se divida en varias líneas */
+    padding: 10px;
+    text-align: center; /* Centrado de texto */
+    border: 1px solid #ddd;
+    word-wrap: break-word; /* Ajusta contenido largo */
+    text-overflow: ellipsis; /* Agrega "..." si el texto es muy largo */
+    white-space: nowrap; /* Evita múltiples líneas */
 }
 
 #isochroneTable thead {
-    background-color: #f4f4f4;
-    position: sticky;
+    background-color: #f4f4f4; /* Fondo claro para la cabecera */
+    position: sticky; /* Fija la cabecera al desplazarse */
     top: 0;
-    z-index: 1;
+    z-index: 2; /* Asegura que la cabecera esté encima */
 }
 
 #isochroneTable tbody {
-    display: block;
-    max-height: 90vh; /* Altura máxima de la tabla, permitiendo desplazamiento */
-    overflow-y: auto;
+    display: block; /* Permite el desplazamiento vertical */
+    max-height: 70vh; /* Altura máxima de la tabla */
+    overflow-y: auto; /* Agrega barra de desplazamiento */
 }
 
 #isochroneTable th {
     font-weight: bold;
+    color: #333; /* Texto más oscuro para mayor contraste */
+}
+
+#isochroneTable tr:nth-child(even) {
+    background-color: #f9f9f9; /* Color alterno para filas pares */
+}
+
+#isochroneTable tr:nth-child(odd) {
+    background-color: #ffffff; /* Color blanco para filas impares */
+}
+
+#isochroneTable tr:hover {
+    background-color: #f1f1f1; /* Resaltado al pasar el cursor */
+}
+
+#isochroneTable td {
+    max-width: 300px; /* Limita el ancho máximo de las celdas */
+}
+
+.info-table-container {
+    max-height: 90vh; /* Altura máxima del contenedor */
+    overflow-y: auto; /* Habilita desplazamiento si el contenido excede */
+    margin-top: 15px; /* Separación adicional del encabezado */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Añade sombra para mayor definición */
+    border-radius: 5px; /* Bordes ligeramente redondeados */
+}
+#map {
+    width: 66.66%; /* Dos tercios del ancho de la página */
+    height: 100vh; /* Ocupa toda la altura disponible */
+    flex-grow: 1;
 }

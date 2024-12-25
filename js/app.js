@@ -1,182 +1,129 @@
-const apiKey = "5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83"; // Reemplaza con tu clave de OpenRouteService
+const apiKey = "5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83"; // Replace with your OpenRouteService key
+const apiUrl = "https://api.openrouteservice.org/v2/isochrones/"; // Ensure this is defined
 
-// Configura el mapa
-const map = L.map("map").setView([39.4699, -0.3763], 12); // Valencia como coordenadas predeterminadas
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  attribution: "&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
-}).addTo(map);
+<script>
+    const map = L.map('map').setView([39.4699, -0.3763], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
 
-// Variables para punto y capas de isocronas
-let currentPoint = null;
-let isochronesLayer; // Definir la capa globalmente
-const infoPanel = document.getElementById("infoPanel"); // El panel lateral
+    let isochronesLayer = L.layerGroup().addTo(map);
+    let points = [];
+    let isochronesData = [];
 
-// Función para eliminar el punto y las isocronas
-function removePoint(marker) {
-  if (currentPoint === marker) {
-    map.removeLayer(marker);
-    currentPoint = null;
-    if (isochronesLayer) {
-      map.removeLayer(isochronesLayer);
-      isochronesLayer = null;
-    }
-  }
-}
+    map.on('click', function (e) {
+        const marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+        points.push(marker);
 
-// Evento de clic en el mapa para agregar un punto
-map.on("click", function (event) {
-  if (currentPoint) {
-    alert("Ya hay un punto seleccionado. Elimínalo antes de añadir otro.");
-    return;
-  }
-
-  const { lat, lng } = event.latlng;
-
-  // Crear marcador en la ubicación clicada
-  currentPoint = L.marker([lat, lng], { draggable: false })
-    .addTo(map)
-    .bindPopup("Punto seleccionado")
-    .openPopup();
-
-  // Evento de clic derecho para eliminar el marcador
-  currentPoint.on("contextmenu", function () {
-    removePoint(currentPoint);
-  });
-});
-
-async function generateIsochrones() {
-  if (!currentPoint) {
-    alert("Por favor, selecciona un punto en el mapa.");
-    return;
-  }
-
-  const input = document.getElementById("isochroneInput").value;
-  const transportMode = document.getElementById("transport-mode").value;
-
-  if (!input) {
-    alert("Por favor, introduce los valores de las isocronas en minutos.");
-    return;
-  }
-
-  if (!transportMode) {
-    alert("Por favor, selecciona el modo de transporte.");
-    return;
-  }
-
- // Define los factores de tráfico según el modo de transporte
- let trafficFactor;
- if (transportMode === "driving-car") {
-   trafficFactor = 0.55; // Factor para coche
- } else if (transportMode === "foot-walking") {
-   trafficFactor = 0.85; // Factor para caminar
- } else {
-   trafficFactor = 1; // Sin ajuste para otros modos
- }
-
-
-
-
-  const ranges = input
-    .split(",")
-    .map((value) => parseInt(value.trim()))
-    .filter((value) => !isNaN(value) && value > 0)
-    .map((minute) => minute * 60 * trafficFactor);
-
-  if (ranges.length === 0) {
-    alert("Por favor, introduce valores válidos de isocronas.");
-    return;
-  }
-
-  const coordinates = currentPoint.getLatLng();
-
-  try {
-    const url = `https://api.openrouteservice.org/v2/isochrones/${transportMode}`;
-    const trafficFactor = 0.65;
-    const body = JSON.stringify({
-      locations: [[coordinates.lng, coordinates.lat]],
-      range: ranges, // Multiplicamos por 60 para convertir los minutos a segundos
-      smoothing:0,
-      range_type: "time", // Fijamos el tipo de rango a "time"
-      attributes: ["total_pop"]
+        marker.bindPopup('Punto seleccionado').openPopup();
+        marker.on('contextmenu', function () {
+            map.removeLayer(marker);
+            points = points.filter(p => p !== marker);
+        });
     });
 
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: apiKey
-      },
-      body: body
-    });
+    async function generateIsochrones() {
+        const input = document.getElementById('isochroneInput').value;
+        const transportMode = document.getElementById('transport-mode').value;
 
-    if (!response.ok) {
-      throw new Error(`Error en la API: ${response.status} - ${response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Limpia las capas anteriores y los contenidos del panel
-    if (isochronesLayer) {
-      map.removeLayer(isochronesLayer);
-    }
-    infoPanel.innerHTML = "<h2>Detalles de las Isocronas</h2>"; // Limpiar el panel antes de agregar nueva información
-
-    // Crea una nueva capa para las isocronas
-    isochronesLayer = L.layerGroup();
-    data.features.forEach(({ properties: { total_pop }, geometry }, index) => {
-      const color = getColorForRange(index, ranges.length);
-      const duration = ranges[index] / 60|| "Desconocido";
-      
-      const layer = L.geoJSON({ type: "Feature", geometry }, {
-        style: {
-          fillColor: color,
-          weight: 1,
-          opacity: 1,
-          color: color,
-          fillOpacity: 0.4
+        if (!input || points.length === 0) {
+            alert('Introduce los tiempos y selecciona al menos un punto.');
+            return;
         }
-      }).bindPopup(`Isocrona: ${duration} minutos<br>Población Total: ${total_pop || "No disponible"}`);
 
-      layer.addTo(isochronesLayer);
-      addInfoToPanel(duration, total_pop || "No disponible");
-    });
+        const times = input.split(',').map(t => parseInt(t.trim()) * 60);
+        const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
 
-    isochronesLayer.addTo(map);
+        isochronesLayer.clearLayers();
+        document.getElementById('isochroneTableBody').innerHTML = '';
+        isochronesData = [];  // Clear previous data
 
-    // Mostrar el panel lateral
-    infoPanel.style.display = "block";
-  } catch (error) {
-    alert(`Error al generar las isocronas: ${error.message}`);
-    console.error(error); // Para depuración
-  }
-}
+        for (const coord of coords) {
+            const response = await fetch(`${apiUrl}${transportMode}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: apiKey
+                },
+                body: JSON.stringify({
+                    locations: [coord],
+                    range: times,
+                    range_type: 'time',
+                    attributes: ['total_pop']
+                })
+            });
 
-// Función para agregar la información al panel
-function addInfoToPanel(duration, population) {
-  const infoDiv = document.createElement("div");
-  infoDiv.classList.add("isochrone-info");
+            const data = await response.json();
 
-  const durationSpan = document.createElement("span");
-  durationSpan.textContent = `Isocrona: ${duration} minutos - `;
-  infoDiv.appendChild(durationSpan);
+            if (data && data.features) {
+                data.features.forEach((feature, index) => {
+                    const totalPop = feature.properties ? feature.properties.total_pop : null;
 
-  const populationSpan = document.createElement("span");
-  populationSpan.textContent = `Población total: ${population}`;
-  infoDiv.appendChild(populationSpan);
+                    // Ensure totalPop is a number
+                    const population = totalPop !== undefined && totalPop !== null ? totalPop : 0;
 
-  infoPanel.appendChild(infoDiv);
-}
+                    // Store isochrone data
+                    isochronesData.push({
+                        time: times[index] / 60,
+                        population: population,
+                        geojson: feature
+                    });
 
-// Función para obtener un color basado en el índice de la isocrona
-function getColorForRange(index, totalRanges) {
-  const colorScale = [
-    "#FF0000", // rojo
-    "#FF7F00", // naranja
-    "#FFFF00", // amarillo
-    "#00FF00", // verde
-    "#0000FF", // azul
-    "#800080"  // púrpura
-  ];
+                    // Add isochrone layer to map
+                    L.geoJSON(feature.geometry, {
+                        style: {
+                            color: `hsl(${(index * 60) % 360}, 70%, 50%)`,
+                            weight: 2,
+                            fillOpacity: 0.2
+                        }
+                    }).bindPopup(`Isocrona: ${times[index] / 60} minutos<br>Población: ${population} hab.`).addTo(isochronesLayer);
 
-  return colorScale[index % colorScale.length];
-}
+                    // Add row to table
+                    const row = document.createElement('tr');
+                    row.innerHTML = `<td>${times[index] / 60} min</td><td>${population || 'N/A'} hab.</td>`;
+                    document.getElementById('isochroneTableBody').appendChild(row);
+                });
+            }
+        }
+    }
+
+    function resetMap() {
+        isochronesLayer.clearLayers();
+        points.forEach(p => map.removeLayer(p));
+        points = [];
+        document.getElementById('isochroneTableBody').innerHTML = '';
+    }
+
+    function exportData() {
+        const geojsonData = {
+            type: 'FeatureCollection',
+            features: isochronesData.map(data => {
+                // Ensure population is a number
+                const population = typeof data.population === 'number' ? data.population : parseInt(data.population, 10) || 0;
+
+                return {
+                    type: 'Feature',
+                    geometry: data.geojson.geometry,  // Geometry of the isochrone
+                    properties: {
+                        time: `${data.time} min`,  // Isochrone time in minutes
+                        total_pop: population  // Ensure population is a number
+                    }
+                };
+            })
+        };
+
+        // Log data before exporting
+        console.log(geojsonData);
+
+        // Create a blob with the data in GeoJSON format
+        const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { type: 'application/geo+json' });
+
+        // Create a link for file download
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'isochrones.geojson';
+
+        // Simulate a click to start the download
+        link.click();
+    }
+</script>

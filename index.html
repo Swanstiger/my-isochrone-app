@@ -3,80 +3,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generador de Isocronas</title>
+    <title>Generador de Isocronas Mejorado</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.11.5/css/jquery.dataTables.min.css" />
     <style>
         body {
             display: flex;
             margin: 0;
             font-family: Arial, sans-serif;
             height: 100vh;
-            overflow: hidden; /* Esto previene el desbordamiento */
+            overflow: hidden;
         }
         #controls {
-            width: 16.67%; /* 1/6 del ancho */
+            width: 20%;
             background-color: #f9f9f9;
-            padding: 10px;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-        }
-        #map {
-            width: 66.66%; /* 2/3 del ancho */
-            height: 100vh;
-            flex-grow: 1;
-        }
-        #infoPanel {
-            width: 16.67%; /* 1/6 del ancho */
-            background-color: #f9f9f9;
-            padding: 10px;
+            padding: 15px;
             box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
+        }
+        #map {
+            flex-grow: 1;
             height: 100vh;
-            display: none; /* Ocultar panel al principio */
+        }
+        #infoPanel {
+            width: 20%;
+            background-color: #ffffff;
+            padding: 15px;
+            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         #infoPanel h2 {
-            margin-top: 0;
-        }
-        .isochrone-info {
+            font-size: 18px;
             margin-bottom: 10px;
         }
-        .isochrone-info span {
-            font-weight: bold;
-        }
-        label {
-            font-size: 14px;
-            display: block;
-            margin-bottom: 5px;
-        }
-        input, select, button {
+        table {
             width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            box-sizing: border-box;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        tbody tr:hover {
+            background-color: #f1f1f1;
+        }
+        .button-group button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: none;
+            background-color: #007bff;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .button-group button:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
 <body>
     <div id="controls">
-        <label for="isochroneInput">Isocronas (en minutos, separadas por comas):</label>
-        <input type="text" id="isochroneInput" placeholder="Ej: 5,10,20" />
-        
+        <h3>Configuración</h3>
+        <label for="isochroneInput">Isocronas (minutos, separadas por comas):</label>
+        <input type="text" id="isochroneInput" placeholder="Ej: 5,10,20">
         <label for="transport-mode">Modo de transporte:</label>
         <select id="transport-mode">
             <option value="driving-car">Coche</option>
             <option value="foot-walking">A pie</option>
         </select>
         
-        <button onclick="generateIsochrones()">Crear Isocronas</button>
+        <div class="button-group">
+            <button onclick="generateIsochrones()">Generar Isocronas</button>
+            <button onclick="resetMap()">Resetear Mapa</button>
+            <button onclick="exportData()">Exportar Datos</button>
+        </div>
     </div>
 
     <div id="map"></div>
 
     <div id="infoPanel">
         <h2>Detalles de las Isocronas</h2>
-        <!-- La información de las isocronas se mostrará aquí -->
+        <table id="isochroneTable">
+            <thead>
+                <tr>
+                    <th>Tiempo (min)</th>
+                    <th>Población</th>
+                </tr>
+            </thead>
+            <tbody id="isochroneTableBody">
+                <!-- Filas dinámicas -->
+            </tbody>
+        </table>
     </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="js/app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        const map = L.map('map').setView([39.4699, -0.3763], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        let isochronesLayer = L.layerGroup().addTo(map);
+        let points = [];
+        let isochronesData = [];
+
+        map.on('click', function (e) {
+            const marker = L.marker(e.latlng, { draggable: true }).addTo(map);
+            points.push(marker);
+
+            marker.bindPopup('Punto seleccionado').openPopup();
+            marker.on('contextmenu', function () {
+                map.removeLayer(marker);
+                points = points.filter(p => p !== marker);
+            });
+        });
+
+        async function generateIsochrones() {
+            const input = document.getElementById('isochroneInput').value;
+            const transportMode = document.getElementById('transport-mode').value;
+
+            if (!input || points.length === 0) {
+                alert('Introduce los tiempos y selecciona al menos un punto.');
+                return;
+            }
+
+            const times = input.split(',').map(t => parseInt(t.trim()) * 60);
+            const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
+
+            isochronesLayer.clearLayers();
+            document.getElementById('isochroneTableBody').innerHTML = '';
+            isochronesData = [];  // Clear previous data
+
+            for (const coord of coords) {
+                const response = await fetch(`https://api.openrouteservice.org/v2/isochrones/${transportMode}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: '5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83'
+                    },
+                    body: JSON.stringify({
+                        locations: [coord],
+                        range: times,
+                        range_type: 'time',
+                        attributes: ['total_pop']
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data && data.features) {
+                    data.features.forEach((feature, index) => {
+                        const totalPop = feature.properties ? feature.properties.total_pop : null;
+
+                        // Ensure totalPop is a number
+                        const population = totalPop !== undefined && totalPop !== null ? totalPop : 0;
+
+                        // Store isochrone data
+                        isochronesData.push({
+                            time: times[index] / 60,
+                            population: population,
+                            geojson: feature
+                        });
+
+                        // Add isochrone layer to map
+                        L.geoJSON(feature.geometry, {
+                            style: {
+                                color: `hsl(${(index * 60) % 360}, 70%, 50%)`,
+                                weight: 2,
+                                fillOpacity: 0.2
+                            }
+                        }).bindPopup(`Isocrona: ${times[index] / 60} minutos<br>Población: ${population} hab.`).addTo(isochronesLayer);
+
+                        // Add row to table
+                        const row = document.createElement('tr');
+                        row.innerHTML = `<td>${times[index] / 60} min</td><td>${population || 'N/A'} hab.</td>`;
+                        document.getElementById('isochroneTableBody').appendChild(row);
+                    });
+                }
+            }
+        }
+
+        function resetMap() {
+            isochronesLayer.clearLayers();
+            points.forEach(p => map.removeLayer(p));
+            points = [];
+            document.getElementById('isochroneTableBody').innerHTML = '';
+        }
+
+        function exportData() {
+            const geojsonData = {
+                type: 'FeatureCollection',
+                features: isochronesData.map(data => {
+                    // Ensure population is a number
+                    const population = typeof data.population === 'number' ? data.population : parseInt(data.population, 10) || 0;
+
+                    return {
+                        type: 'Feature',
+                        geometry: data.geojson.geometry,  // Geometry of the isochrone
+                        properties: {
+                            time: `${data.time} min`,  // Isochrone time in minutes
+                            total_pop: population  // Ensure population is a number
+                        }
+                    };
+                })
+            };
+
+            // Log data before exporting
+            console.log(geojsonData);
+
+            // Create a blob with the data in GeoJSON format
+            const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { type: 'application/geo+json' });
+
+            // Create a link for file download
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'isochrones.geojson';
+
+            // Simulate a click to start the download
+            link.click();
+        }
+    </script>
 </body>
 </html>
