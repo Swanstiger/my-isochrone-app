@@ -6,71 +6,7 @@
     <title>Generador de Isocronas Mejorado</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/datatables/1.11.5/css/jquery.dataTables.min.css" />
-    <style>
-        body {
-            display: flex;
-            margin: 0;
-            font-family: Arial, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #controls {
-            width: 20%;
-            background-color: #f9f9f9;
-            padding: 15px;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-            overflow-y: auto;
-        }
-        #map {
-            flex-grow: 1;
-            height: 100vh;
-        }
-        #infoPanel {
-            width: 20%;
-            background-color: #ffffff;
-            padding: 15px;
-            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-        #infoPanel h2 {
-            font-size: 18px;
-            margin-bottom: 10px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            padding: 10px;
-            text-align: center;
-            border: 1px solid #ddd;
-        }
-        th {
-            background-color: #f4f4f4;
-            cursor: pointer;
-        }
-        tbody tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-        tbody tr:hover {
-            background-color: #f1f1f1;
-        }
-        .button-group button {
-            width: 100%;
-            padding: 10px;
-            margin: 5px 0;
-            border: none;
-            background-color: #007bff;
-            color: #fff;
-            cursor: pointer;
-            border-radius: 5px;
-        }
-        .button-group button:hover {
-            background-color: #0056b3;
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
     <div id="controls">
@@ -86,6 +22,7 @@
                 <option value="foot-walking">A pie</option>
             </select>
         </div>
+        
         <div class="button-group">
             <button onclick="generateIsochrones()">Generar Isocronas</button>
             <button onclick="resetMap()">Resetear Mapa</button>

@@ -124,8 +124,6 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                     );
                 });
          
-
-                
                 // Crear fila para la tabla
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -135,10 +133,6 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                 `;
                 document.getElementById('isochroneTableBody').appendChild(row);
                 
-
-                
-                
-
                 // Añadir eventos de mouse para resaltar la isocrona
                 row.addEventListener('mouseenter', () => {
                     isochroneLayer.setStyle({ weight: 4, fillOpacity: 0.4 });
@@ -166,31 +160,31 @@ function resetMap() {
 }
 
 function exportData() {
-    const geojsonData = {
-        type: 'FeatureCollection',
-        features: isochronesData.map(data => {
-            const population = typeof data.population === 'number' ? data.population : parseInt(data.population, 10) || 0;
-
-            return {
-                type: 'Feature',
-                geometry: data.geojson.geometry,
-                properties: {
-                    time: `${data.timeInMinutes} min`,
-                    total_pop: population
-                }
-            };
-        })
+    // Crear un objeto GeoJSON
+    const geojson = {
+        type: "FeatureCollection",
+        features: isochronesData.map((data) => ({
+            type: "Feature",
+            properties: {
+                id: data.geojson.properties.identifier, // Usar el ID preexistente
+                time: data.timeInMinutes, // Tiempo asociado
+                population: data.population // Población asociada
+            },
+            geometry: data.geojson.geometry // Geometría de la isocrona
+        }))
     };
 
-    console.log(geojsonData);
+    // Convertir el objeto GeoJSON a una cadena JSON
+    const geojsonString = JSON.stringify(geojson);
 
-    const blob = new Blob([JSON.stringify(geojsonData, null, 2)], { type: 'application/geo+json' });
-
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'isochrones.geojson';
-
-    link.click();
+    // Crear un blob y un enlace para descargar el archivo
+    const blob = new Blob([geojsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'isochrones.geojson';
+    a.click();
+    URL.revokeObjectURL(url);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
