@@ -1,64 +1,141 @@
 #isochroneTable {
-    width: 100%; /* Ocupa todo el ancho disponible */
+    width: 100%;
     border-collapse: collapse;
-    display: block; /* Permite manejar el desbordamiento en tablas largas */
+    display: block;
     overflow-y: auto;
-    margin-top: 10px; /* Separación de otros elementos */
+    margin-top: 10px;
 }
 
 #isochroneTable th,
 #isochroneTable td {
     padding: 10px;
-    text-align: center; /* Centrado de texto */
+    text-align: center;
     border: 1px solid #ddd;
-    word-wrap: break-word; /* Ajusta contenido largo */
-    text-overflow: ellipsis; /* Agrega "..." si el texto es muy largo */
-    white-space: nowrap; /* Evita múltiples líneas */
+    word-wrap: break-word;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #isochroneTable thead {
-    background-color: #f4f4f4; /* Fondo claro para la cabecera */
-    position: sticky; /* Fija la cabecera al desplazarse */
+    background-color: #f4f4f4;
+    position: sticky;
     top: 0;
-    z-index: 2; /* Asegura que la cabecera esté encima */
+    z-index: 2;
 }
 
 #isochroneTable tbody {
-    display: block; /* Permite el desplazamiento vertical */
-    max-height: 70vh; /* Altura máxima de la tabla */
-    overflow-y: auto; /* Agrega barra de desplazamiento */
+    display: block;
+    max-height: 70vh;
+    overflow-y: auto;
 }
 
 #isochroneTable th {
     font-weight: bold;
-    color: #333; /* Texto más oscuro para mayor contraste */
+    color: #333;
+    cursor: pointer;
 }
 
 #isochroneTable tr:nth-child(even) {
-    background-color: #f9f9f9; /* Color alterno para filas pares */
+    background-color: #f9f9f9;
 }
 
 #isochroneTable tr:nth-child(odd) {
-    background-color: #ffffff; /* Color blanco para filas impares */
+    background-color: #ffffff;
 }
 
 #isochroneTable tr:hover {
-    background-color: #f1f1f1; /* Resaltado al pasar el cursor */
+    background-color: #f1f1f1;
 }
 
 #isochroneTable td {
-    max-width: 300px; /* Limita el ancho máximo de las celdas */
+    max-width: 300px;
 }
 
 .info-table-container {
-    max-height: 90vh; /* Altura máxima del contenedor */
-    overflow-y: auto; /* Habilita desplazamiento si el contenido excede */
-    margin-top: 15px; /* Separación adicional del encabezado */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Añade sombra para mayor definición */
-    border-radius: 5px; /* Bordes ligeramente redondeados */
+    max-height: 90vh;
+    overflow-y: auto;
+    margin-top: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
 }
+
 #map {
-    width: 66.66%; /* Dos tercios del ancho de la página */
-    height: 100vh; /* Ocupa toda la altura disponible */
+    width: 66.66%;
+    height: 100vh;
     flex-grow: 1;
+}
+
+.isochrone-label {
+    background-color: rgba(255, 255, 255, 0.8);
+    border-radius: 4px;
+    padding: 5px;
+    font-size: 12px;
+    color: #333;
+    text-align: center;
+}
+
+#controls {
+    width: 20%;
+    background-color: #f9f9f9;
+    padding: 15px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#controls h3 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #333;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #555;
+}
+
+.form-group input,
+.form-group select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.button-group button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background-color: #007bff;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 16px;
+    transition: background-color 0.3s ease;
+}
+
+.button-group button:hover {
+    background-color: #0056b3;
 }
