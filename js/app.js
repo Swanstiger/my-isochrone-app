@@ -11,15 +11,46 @@ let points = [];
 let isochronesData = [];
 let isochroneLayers = [];
 let dataTable; // Variable para almacenar la instancia de DataTables
+let generatedCombinations = new Set(); // Conjunto para almacenar combinaciones generadas
+const colorMap = {}; // Mapa para almacenar colores asignados a combinaciones de tiempo y modo
+const pointIdentifiers = new Map(); // Mapa para almacenar identificadores únicos para cada punto
+let isochroneCounter = 1; // Contador global para asignar identificadores únicos
+const reservedIdentifiers = new Set(); // Conjunto para almacenar identificadores reservados
+const availableIdentifiers = []; // Array para almacenar identificadores disponibles para reutilización
 
 map.on('click', function (e) {
     const marker = L.marker(e.latlng, { draggable: true }).addTo(map);
     points.push(marker);
 
-    marker.bindPopup('Punto seleccionado').openPopup();
+    // Asignar un identificador único al punto si no tiene uno
+    if (!pointIdentifiers.has(marker)) {
+        let identifier;
+        if (availableIdentifiers.length > 0) {
+            identifier = availableIdentifiers.pop(); // Reutilizar un identificador disponible
+        } else {
+            identifier = `ISO-${isochroneCounter++}`;
+        }
+
+        pointIdentifiers.set(marker, identifier);
+    }
+
+    const isochroneName = pointIdentifiers.get(marker); // Obtener el nombre de la isocrona
+
+    marker.bindPopup(`${isochroneName}`).openPopup(); // Mostrar el nombre de la isocrona
     marker.on('contextmenu', function () {
         map.removeLayer(marker);
         points = points.filter(p => p !== marker);
+
+        const identifier = pointIdentifiers.get(marker);
+
+        // Reservar el identificador si el punto tiene isocronas asociadas
+        if (isochronesData.some(data => data.geojson.properties.identifier === identifier)) {
+            reservedIdentifiers.add(identifier);
+        } else {
+            availableIdentifiers.push(identifier); // Hacer disponible el identificador si no tiene isocronas
+        }
+
+        pointIdentifiers.delete(marker); // Eliminar el identificador del mapa
     });
 });
 
@@ -40,15 +71,22 @@ async function generateIsochrones() {
     const times = input.split(',').map(t => parseInt(t.trim()) * 60);
     const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
 
-    isochronesLayer.clearLayers();
-    document.getElementById('isochroneTableBody').innerHTML = '';
-    isochronesData = [];
+    // No limpiar isochronesLayer para mantener las isocronas existentes
+    // No limpiar la tabla para mantener las descripciones existentes
+    // isochronesData = []; // No resetear para mantener todas las isocronas
     isochroneLayers = []; // Resetear las capas de isocronas
 
     try {
-        const promises = coords.map((coord, pointIndex) => {
+        const promises = coords.flatMap((coord, pointIndex) => {
             const pointId = pointIndex + 1;
-            return fetchIsochrones(coord, times, pointId, transportMode);
+            return times.map(time => {
+                const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
+                if (!generatedCombinations.has(combinationKey)) {
+                    generatedCombinations.add(combinationKey);
+                    return fetchIsochrones(coord, [time], pointId, transportMode);
+                }
+                return Promise.resolve(); // No hacer nada si ya existe
+            });
         });
 
         await Promise.all(promises);
@@ -58,17 +96,38 @@ async function generateIsochrones() {
             "language": {
                 "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/Spanish.json"
             },
-            "order": [],
+            "order": [], // Permitir ordenación en todas las columnas
             "paging": false,
             "searching": false,
             "info": false,
             "columnDefs": [
-                { "type": "natural", "targets": [0, 1, 2] }
+                { "type": "natural", "targets": [0, 1, 2, 3] } // Asegurar ordenación natural
             ]
         });
     } catch (error) {
         console.error("Error al generar isocronas:", error);
     }
+}
+
+function translateTransportMode(mode) {
+    switch (mode) {
+        case 'foot-walking':
+            return 'A pie';
+        case 'driving-car':
+            return 'Coche';
+        default:
+            return mode;
+    }
+}
+
+function getColorForCombination(time, mode) {
+    const key = `${time}-${mode}`;
+    if (!colorMap[key]) {
+        // Generar un color único basado en el tiempo y el modo
+        const hue = (Object.keys(colorMap).length * 137) % 360; // Distribuir colores en el espectro
+        colorMap[key] = `hsl(${hue}, 70%, 50%)`;
+    }
+    return colorMap[key];
 }
 
 async function fetchIsochrones(coord, times, pointId, transportMode) {
@@ -100,7 +159,8 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
 
                 feature.properties.timeInMinutes = times[index] / 60;
                 feature.properties.population = population;
-                feature.properties.identifier = `Iso-${pointId}`;
+                feature.properties.identifier = pointIdentifiers.get(points[pointId - 1]); // Usar el identificador del punto
+                feature.properties.mode = translateTransportMode(transportMode); // Usar la función de traducción
 
                 isochronesData.push({
                     timeInMinutes: feature.properties.timeInMinutes,
@@ -108,9 +168,11 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                     geojson: feature
                 });
 
+                const color = getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode);
+
                 const isochroneLayer = L.geoJSON(feature, {
                     style: {
-                        color: `hsl(${(index * 60) % 360}, 70%, 50%)`,
+                        color: color,
                         weight: 2,
                         fillOpacity: 0.2
                     }
@@ -120,7 +182,7 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
 
                 isochroneLayer.eachLayer(function (layer) {
                     layer.bindPopup(
-                        `${layer.feature.properties.identifier}: ${layer.feature.properties.timeInMinutes} minutos<br>Población: ${layer.feature.properties.population.toLocaleString()} hab.`
+                        `${layer.feature.properties.identifier}: ${layer.feature.properties.timeInMinutes} minutos<br>Población: ${layer.feature.properties.population.toLocaleString()} hab.<br>Modo: ${layer.feature.properties.mode}`
                     );
                 });
          
@@ -128,8 +190,9 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${feature.properties.identifier}</td>
-                    <td data-order="${feature.properties.timeInMinutes}">${feature.properties.timeInMinutes} min</td>
+                    <td data-order="${feature.properties.timeInMinutes}">${feature.properties.timeInMinutes}</td>
                     <td data-order="${population}">${population}</td>
+                    <td>${feature.properties.mode}</td> <!-- Añadir columna de modo -->
                 `;
                 document.getElementById('isochroneTableBody').appendChild(row);
                 
@@ -167,8 +230,9 @@ function exportData() {
             type: "Feature",
             properties: {
                 id: data.geojson.properties.identifier, // Usar el ID preexistente
-                time: data.timeInMinutes, // Tiempo asociado
-                population: data.population // Población asociada
+                Tiempo: data.timeInMinutes, // Tiempo asociado
+                Población: data.population, // Población asociada
+                Modo: data.geojson.properties.mode // Añadir modo de transporte
             },
             geometry: data.geojson.geometry // Geometría de la isocrona
         }))
@@ -189,50 +253,62 @@ function exportData() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('isochroneTable');
-    const headers = table.querySelectorAll('th');
+    const isochroneHeader = document.getElementById('isochroneHeader');
+    const timeHeader = document.getElementById('timeHeader');
+    const populationHeader = document.getElementById('populationHeader');
+    const modeHeader = document.getElementById('modeHeader');
     let sortDirection = true; // true for ascending, false for descending
 
-    headers.forEach((header, index) => {
-        header.addEventListener('click', () => {
-            sortTableByColumn(table, index, sortDirection);
-            sortDirection = !sortDirection; // Toggle the sort direction
-        });
+    isochroneHeader.addEventListener('click', () => {
+        sortTableByColumn(table, 0, sortDirection, 'isochrone');
+        sortDirection = !sortDirection; // Toggle the sort direction
+    });
+
+    timeHeader.addEventListener('click', () => {
+        sortTableByColumn(table, 1, sortDirection, 'numeric');
+        sortDirection = !sortDirection; // Toggle the sort direction
+    });
+
+    populationHeader.addEventListener('click', () => {
+        sortTableByColumn(table, 2, sortDirection, 'numeric');
+        sortDirection = !sortDirection; // Toggle the sort direction
+    });
+
+    modeHeader.addEventListener('click', () => {
+        sortTableByColumn(table, 3, sortDirection, 'text');
+        sortDirection = !sortDirection; // Toggle the sort direction
     });
 });
 
-function sortTableByColumn(table, column, ascending = true) {
+function sortTableByColumn(table, column, ascending = true, type = 'text') {
     const dirModifier = ascending ? 1 : -1;
     const tBody = table.tBodies[0];
     const rows = Array.from(tBody.querySelectorAll('tr'));
 
     const sortedRows = rows.sort((a, b) => {
-        // Obtén los valores de las celdas, usando 'data-order' si está presente
-        const aText = a.querySelector(`td:nth-child(${column + 1})`).getAttribute('data-order') || a.querySelector(`td:nth-child(${column + 1})`).textContent.trim();
-        const bText = b.querySelector(`td:nth-child(${column + 1})`).getAttribute('data-order') || b.querySelector(`td:nth-child(${column + 1})`).textContent.trim();
+        const aText = a.querySelector(`td:nth-child(${column + 1})`).textContent.trim();
+        const bText = b.querySelector(`td:nth-child(${column + 1})`).textContent.trim();
 
         let aValue, bValue;
 
-        // Lógica específica según el índice de la columna
-        if (column === 0) { // Columna "Isocrona"
-            // Ordenar extrayendo el número después de "Iso-"
-            const regex = /Iso-(\d+)/;
-            aValue = parseInt(aText.match(regex)?.[1] || 0, 10);
-            bValue = parseInt(bText.match(regex)?.[1] || 0, 10);
-        } else if (column === 1) { // Columna "Tiempo (min)"
-            // Extraer el número antes de "min"
-            aValue = parseInt(aText.replace('min', '').trim(), 10);
-            bValue = parseInt(bText.replace('min', '').trim(), 10);
-        } else if (column === 2) { // Columna "Población"
-            // Convertir a número eliminando comas
-            aValue = parseFloat(aText.replace(/,/g, '')) || 0;
-            bValue = parseFloat(bText.replace(/,/g, '')) || 0;
+        if (type === 'numeric') {
+            aValue = parseFloat(aText);
+            bValue = parseFloat(bText);
+        } else if (type === 'isochrone') {
+            aValue = parseInt(aText.split('-')[1], 10);
+            bValue = parseInt(bText.split('-')[1], 10);
         } else {
-            // Ordenar como cadenas de texto por defecto
-            return aText.localeCompare(bText) * dirModifier;
+            aValue = aText;
+            bValue = bText;
         }
 
-        // Comparar los valores numéricos
-        return (aValue - bValue) * dirModifier;
+        if (aValue < bValue) {
+            return -1 * dirModifier;
+        }
+        if (aValue > bValue) {
+            return 1 * dirModifier;
+        }
+        return 0;
     });
 
     // Remove all existing TRs from the table
