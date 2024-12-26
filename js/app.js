@@ -68,7 +68,18 @@ async function generateIsochrones() {
         dataTable.destroy();
     }
 
+    let trafficFactor;
+
+    if (transportMode === "driving-car") {
+      trafficFactor = 0.55; // Factor for car
+    } else if (transportMode === "foot-walking") {
+      trafficFactor = 0.85; // Factor for walking
+    } else {
+      trafficFactor = 1; // Sin ajuste para otros modos (No adjustment for other modes)
+    }
+
     const times = input.split(',').map(t => parseInt(t.trim()) * 60);
+    const adjustedTimes = times.map(t => t * trafficFactor); // Apply traffic factor here
     const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
 
     // No limpiar isochronesLayer para mantener las isocronas existentes
@@ -79,11 +90,11 @@ async function generateIsochrones() {
     try {
         const promises = coords.flatMap((coord, pointIndex) => {
             const pointId = pointIndex + 1;
-            return times.map(time => {
+            return times.map((time, index) => {
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
                 if (!generatedCombinations.has(combinationKey)) {
                     generatedCombinations.add(combinationKey);
-                    return fetchIsochrones(coord, [time], pointId, transportMode);
+                    return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time);
                 }
                 return Promise.resolve(); // No hacer nada si ya existe
             });
@@ -130,7 +141,7 @@ function getColorForCombination(time, mode) {
     return colorMap[key];
 }
 
-async function fetchIsochrones(coord, times, pointId, transportMode) {
+async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time) {
     try {
         const response = await fetch(`${apiUrl}${transportMode}`, {
             method: 'POST',
@@ -140,7 +151,7 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
             },
             body: JSON.stringify({
                 locations: [coord],
-                range: times,
+                range: adjustedTimes,
                 range_type: 'time',
                 attributes: ['total_pop']
             })
@@ -157,7 +168,7 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                 const totalPop = feature.properties ? feature.properties.total_pop : null;
                 const population = totalPop !== undefined && totalPop !== null ? totalPop : 0;
 
-                feature.properties.timeInMinutes = times[index] / 60;
+                feature.properties.timeInMinutes = time / 60;
                 feature.properties.population = population;
                 feature.properties.identifier = pointIdentifiers.get(points[pointId - 1]); // Usar el identificador del punto
                 feature.properties.mode = translateTransportMode(transportMode); // Usar la función de traducción
@@ -185,7 +196,7 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                         `${layer.feature.properties.identifier}: ${layer.feature.properties.timeInMinutes} minutos<br>Población: ${layer.feature.properties.population.toLocaleString()} hab.<br>Modo: ${layer.feature.properties.mode}`
                     );
                 });
-         
+
                 // Crear fila para la tabla
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -195,7 +206,7 @@ async function fetchIsochrones(coord, times, pointId, transportMode) {
                     <td>${feature.properties.mode}</td> <!-- Añadir columna de modo -->
                 `;
                 document.getElementById('isochroneTableBody').appendChild(row);
-                
+
                 // Añadir eventos de mouse para resaltar la isocrona
                 row.addEventListener('mouseenter', () => {
                     isochroneLayer.setStyle({ weight: 4, fillOpacity: 0.4 });
@@ -319,4 +330,3 @@ function sortTableByColumn(table, column, ascending = true, type = 'text') {
     // Re-add the newly sorted rows
     tBody.append(...sortedRows);
 }
-
