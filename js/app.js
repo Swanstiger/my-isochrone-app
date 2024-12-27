@@ -54,6 +54,10 @@ map.on('click', function (e) {
     });
 });
 
+$(document).ready(function () {
+    $('#isochroneTable').DataTable(); // Inicializa la tabla como DataTable
+});
+
 async function generateIsochrones() {
     const input = document.getElementById('isochroneInput').value;
     const transportMode = document.getElementById('transport-mode').value;
@@ -225,16 +229,21 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
 
 function resetMap() {
     if (dataTable) {
-        dataTable.destroy();
+        dataTable.destroy(); // Eliminar la tabla de datos
     }
-    isochronesLayer.clearLayers();
-    points.forEach(p => map.removeLayer(p));
-    points = [];
-    document.getElementById('isochroneTableBody').innerHTML = '';
+    isochronesLayer.clearLayers(); // Limpiar las capas de isocronas del mapa
+    points.forEach(p => map.removeLayer(p)); // Eliminar los marcadores del mapa
+    points = []; // Vaciar el array de puntos
+    document.getElementById('isochroneTableBody').innerHTML = ''; // Vaciar el cuerpo de la tabla
     isochroneCounter = 1; // Reiniciar el contador de isocronas
-    availableIdentifiers.length = 0; // Limpiar los identificadores disponibles
-    reservedIdentifiers.clear(); // Limpiar los identificadores reservados
+    availableIdentifiers.length = 0; // Vaciar los identificadores disponibles
+    reservedIdentifiers.clear(); // Vaciar los identificadores reservados
+    isochronesData = []; // Vaciar el contenido de las isocronas
+    isochroneLayers = []; // Limpiar las capas de isocronas almacenadas
+    generatedCombinations.clear(); // Vaciar las combinaciones generadas
+    console.log("Mapa y datos reseteados correctamente.");
 }
+
 
 function exportData() {
     // Crear un objeto GeoJSON
