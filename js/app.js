@@ -231,6 +231,9 @@ function resetMap() {
     points.forEach(p => map.removeLayer(p));
     points = [];
     document.getElementById('isochroneTableBody').innerHTML = '';
+    isochroneCounter = 1; // Reiniciar el contador de isocronas
+    availableIdentifiers.length = 0; // Limpiar los identificadores disponibles
+    reservedIdentifiers.clear(); // Limpiar los identificadores reservados
 }
 
 function exportData() {
