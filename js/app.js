@@ -55,10 +55,50 @@ map.on('click', function (e) {
 });
 
 $(document).ready(function () {
-    $('#isochroneTable').DataTable(); // Inicializa la tabla como DataTable
+    if (!$.fn.dataTable.isDataTable('#isochroneTable')) {
+        $('#isochroneTable').DataTable({
+            "language": {
+                "url": "https://cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json"
+            },
+            "order": [], // No ordenar inicialmente
+            "paging": false,
+            "searching": false,
+            "info": false,
+            "columns": [
+                { "data": "identifier" },   // Columna para 'Isocronas'
+                { "data": "timeInMinutes" },            // Columna para 'input'
+                { "data": "population" },       // Columna para 'population'
+                { "data": "mode" } 
+            ]
+        });
+    }
 });
 
+
+
 async function generateIsochrones() {
+    // Verificar si la tabla ya está inicializada antes de intentar usarla
+    let table;
+    if ($.fn.dataTable.isDataTable('#isochroneTable')) {
+        table = $('#isochroneTable').DataTable();
+    } else {
+        table = $('#isochroneTable').DataTable({
+            "language": {
+                "url": "https://cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json"
+            },
+            "order": [], // No ordenar inicialmente
+            "paging": false,
+            "searching": false,
+            "info": false,
+            "columns": [
+                { "data": "identifier" },   // Columna para 'Isocronas'
+                { "data": "timeInMinutes" }, // Columna para 'input'
+                { "data": "population" },    // Columna para 'population'
+                { "data": "mode" }           // Columna para 'Modo de transporte'
+            ]
+        });
+    }
+
     const input = document.getElementById('isochroneInput').value;
     const transportMode = document.getElementById('transport-mode').value;
 
@@ -67,28 +107,21 @@ async function generateIsochrones() {
         return;
     }
 
-    // Destruir la instancia existente de DataTables si existe
-    if (dataTable) {
-        dataTable.destroy();
-    }
-
     let trafficFactor;
 
     if (transportMode === "driving-car") {
-      trafficFactor = 0.55; // Factor for car
+        trafficFactor = 0.55; // Factor para coche
     } else if (transportMode === "foot-walking") {
-      trafficFactor = 0.85; // Factor for walking
+        trafficFactor = 0.85; // Factor para caminar
     } else {
-      trafficFactor = 1; // Sin ajuste para otros modos (No adjustment for other modes)
+        trafficFactor = 1; // Sin ajuste para otros modos
     }
 
     const times = input.split(',').map(t => parseInt(t.trim()) * 60);
-    const adjustedTimes = times.map(t => t * trafficFactor); // Apply traffic factor here
+    const adjustedTimes = times.map(t => t * trafficFactor); // Aplicar el factor de tráfico aquí
     const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
 
-    // No limpiar isochronesLayer para mantener las isocronas existentes
-    // No limpiar la tabla para mantener las descripciones existentes
-    // isochronesData = []; // No resetear para mantener todas las isocronas
+    // No limpiar las capas de isocronas ni la tabla para mantener los datos anteriores
     isochroneLayers = []; // Resetear las capas de isocronas
 
     try {
@@ -106,23 +139,43 @@ async function generateIsochrones() {
 
         await Promise.all(promises);
 
-        // Inicializar DataTables después de que todas las filas estén agregadas
-        dataTable = $('#isochroneTable').DataTable({
-            "language": {
-                "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/Spanish.json"
-            },
-            "order": [], // Permitir ordenación en todas las columnas
-            "paging": false,
-            "searching": false,
-            "info": false,
-            "columnDefs": [
-                { "type": "natural", "targets": [0, 1, 2, 3] } // Asegurar ordenación natural
-            ]
+        // Agregar nuevas filas a la tabla
+        isochroneLayers.forEach(layer => {
+            const feature = layer.feature;
+
+            // Verificar que el 'feature' tiene las propiedades necesarias
+            if (feature && feature.properties) {
+                const featureProperties = feature.properties;
+
+                // Crear un objeto con los datos que vas a agregar a la tabla
+                const tableRow = {
+                    identifier: featureProperties.identifier || 'N/A',
+                    timeInMinutes: featureProperties.timeInMinutes || 'Desconocido',
+                    population: featureProperties.population || 0,
+                    mode: featureProperties.mode || 'Desconocido'
+                };
+
+                // Verificar que los datos están correctos antes de agregarlos
+                console.log('Añadiendo fila a la tabla:', tableRow);
+
+                // Agregar la fila a la tabla usando DataTables
+                table.row.add(tableRow).draw(); // Usar DataTables para agregar la fila
+            } else {
+                console.error("Propiedades no encontradas en el feature:", feature);
+            }
         });
+
     } catch (error) {
         console.error("Error al generar isocronas:", error);
     }
 }
+
+
+
+
+
+
+
 
 function translateTransportMode(mode) {
     switch (mode) {
@@ -166,25 +219,40 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
         }
 
         const data = await response.json();
+        console.log(data);
 
-        if (data && data.features) {
-            data.features.forEach((feature, index) => {
-                const totalPop = feature.properties ? feature.properties.total_pop : null;
-                const population = totalPop !== undefined && totalPop !== null ? totalPop : 0;
+        if (data?.features?.length) {
+            data.features.forEach((feature) => {
+                // Verificación adicional para asegurarse de que `feature` y `feature.properties` están definidos
+                if (!feature || !feature.properties) {
+                    console.error('Feature o properties no definidos:', feature);
+                    return;  // Salir si feature o properties no están definidos
+                }
 
-                feature.properties.timeInMinutes = time / 60;
-                feature.properties.population = population;
-                feature.properties.identifier = pointIdentifiers.get(points[pointId - 1]); // Usar el identificador del punto
-                feature.properties.mode = translateTransportMode(transportMode); // Usar la función de traducción
+                const properties = feature.properties;
+                const population = properties.total_pop ?? 0;
+                const timeInMinutes = time / 60;
+                const identifier = `Punto ${pointId}`;
+                const mode = translateTransportMode(transportMode);
+
+                feature.properties = {
+                    ...properties,
+                    timeInMinutes: timeInMinutes,
+                    population: population,
+                    identifier: identifier,
+                    mode: mode
+                };
 
                 isochronesData.push({
-                    timeInMinutes: feature.properties.timeInMinutes,
+                    timeInMinutes: timeInMinutes,
                     population: population,
                     geojson: feature
                 });
 
+                // Crear un color para la isocrona
                 const color = getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode);
 
+                // Crear capa GeoJSON para la isocrona
                 const isochroneLayer = L.geoJSON(feature, {
                     style: {
                         color: color,
@@ -195,52 +263,63 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
 
                 isochroneLayers.push(isochroneLayer);
 
+                // Verificación adicional para asegurarse de que la capa tiene las propiedades necesarias
                 isochroneLayer.eachLayer(function (layer) {
+                    const featureProperties = layer.feature.properties;
                     layer.bindPopup(
-                        `${layer.feature.properties.identifier}: ${layer.feature.properties.timeInMinutes} minutos<br>Población: ${layer.feature.properties.population.toLocaleString()} hab.<br>Modo: ${layer.feature.properties.mode}`
+                        `${featureProperties.identifier}: ${featureProperties.timeInMinutes} minutos<br>Población: ${featureProperties.population.toLocaleString()} hab.<br>Modo: ${featureProperties.mode}`
                     );
+                
+                    const tableRow = {
+                        identifier: featureProperties.identifier || 'N/A',
+                        timeInMinutes: featureProperties.timeInMinutes || 'Desconocido',
+                        population: featureProperties.population || 0,
+                        mode: featureProperties.mode || 'Desconocido'
+                    };
+                
+                    console.log('Añadiendo fila a la tabla:', tableRow);
+                
+                    // Usar DataTable API para agregar la fila
+                    table.row.add(tableRow).draw(); // Usar DataTables para agregar la fila
                 });
-
-                // Crear fila para la tabla
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${feature.properties.identifier}</td>
-                    <td data-order="${feature.properties.timeInMinutes}">${feature.properties.timeInMinutes}</td>
-                    <td data-order="${population}">${population}</td>
-                    <td>${feature.properties.mode}</td> <!-- Añadir columna de modo -->
-                `;
-                document.getElementById('isochroneTableBody').appendChild(row);
-
-                // Añadir eventos de mouse para resaltar la isocrona
-                row.addEventListener('mouseenter', () => {
-                    isochroneLayer.setStyle({ weight: 4, fillOpacity: 0.4 });
-                });
-                row.addEventListener('mouseleave', () => {
-                    isochroneLayer.setStyle({ weight: 2, fillOpacity: 0.2 });
-                });
+                
+                
             });
         } else {
-            console.error("No features found in the response data.");
+            console.warn("No features found in the response");
         }
     } catch (error) {
-        console.error("Error en fetchIsochrones:", error);
+        console.error("Error al generar isocronas:", error);
     }
 }
 
+
+
 function resetMap() {
-    if (dataTable) {
-        dataTable.destroy(); // Eliminar la tabla de datos
+    // Limpiar las capas de isocronas del mapa
+    isochronesLayer.clearLayers(); 
+
+    // Eliminar los marcadores del mapa
+    points.forEach(p => map.removeLayer(p)); 
+
+    // Vaciar el array de puntos
+    points = []; 
+
+    // Verificar si la tabla ya está inicializada
+    if ($.fn.dataTable.isDataTable('#isochroneTable')) {
+        const table = $('#isochroneTable').DataTable();
+        // Limpiar los datos de la tabla sin destruir la instancia
+        table.clear().draw();
     }
-    isochronesLayer.clearLayers(); // Limpiar las capas de isocronas del mapa
-    points.forEach(p => map.removeLayer(p)); // Eliminar los marcadores del mapa
-    points = []; // Vaciar el array de puntos
-    document.getElementById('isochroneTableBody').innerHTML = ''; // Vaciar el cuerpo de la tabla
+
+    // Reiniciar variables
     isochroneCounter = 1; // Reiniciar el contador de isocronas
     availableIdentifiers.length = 0; // Vaciar los identificadores disponibles
     reservedIdentifiers.clear(); // Vaciar los identificadores reservados
     isochronesData = []; // Vaciar el contenido de las isocronas
     isochroneLayers = []; // Limpiar las capas de isocronas almacenadas
     generatedCombinations.clear(); // Vaciar las combinaciones generadas
+
     console.log("Mapa y datos reseteados correctamente.");
 }
 
@@ -250,7 +329,8 @@ function exportData() {
     const geojson = {
         type: "FeatureCollection",
         features: isochronesData.map((data) => ({
-            type: "Feature",
+            type:
+                 "Feature",
             properties: {
                 id: data.geojson.properties.identifier, // Usar el ID preexistente
                 Tiempo: data.timeInMinutes, // Tiempo asociado
@@ -273,72 +353,26 @@ function exportData() {
     a.click();
     URL.revokeObjectURL(url);
 }
+let table;
 
 document.addEventListener('DOMContentLoaded', () => {
-    const table = document.getElementById('isochroneTable');
-    const isochroneHeader = document.getElementById('isochroneHeader');
-    const timeHeader = document.getElementById('timeHeader');
-    const populationHeader = document.getElementById('populationHeader');
-    const modeHeader = document.getElementById('modeHeader');
-    let sortDirection = true; // true for ascending, false for descending
-
-    isochroneHeader.addEventListener('click', () => {
-        sortTableByColumn(table, 0, sortDirection, 'isochrone');
-        sortDirection = !sortDirection; // Toggle the sort direction
-    });
-
-    timeHeader.addEventListener('click', () => {
-        sortTableByColumn(table, 1, sortDirection, 'numeric');
-        sortDirection = !sortDirection; // Toggle the sort direction
-    });
-
-    populationHeader.addEventListener('click', () => {
-        sortTableByColumn(table, 2, sortDirection, 'numeric');
-        sortDirection = !sortDirection; // Toggle the sort direction
-    });
-
-    modeHeader.addEventListener('click', () => {
-        sortTableByColumn(table, 3, sortDirection, 'text');
-        sortDirection = !sortDirection; // Toggle the sort direction
+    // Inicializar DataTable con el orden inicial configurado y la opción de guardar estado
+    table = $('#isochroneTable').DataTable({
+        "paging": true,
+        "searching": true,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "language": {
+            "url": "https://cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json"
+        },
+        "order": [[0, 'asc']], // Orden inicial por la primera columna en orden ascendente
+        "stateSave": true,  // Guardar el estado de la tabla (incluyendo el orden)
+        "columns": [
+            { "data": "identifier" },  // Columna para 'Isocronas'
+            { "data": "timeInMinutes" }, // Columna para 'Tiempo'
+            { "data": "population" }, // Columna para 'Población'
+            { "data": "mode" } // Columna para 'Modo'
+        ]
     });
 });
-
-function sortTableByColumn(table, column, ascending = true, type = 'text') {
-    const dirModifier = ascending ? 1 : -1;
-    const tBody = table.tBodies[0];
-    const rows = Array.from(tBody.querySelectorAll('tr'));
-
-    const sortedRows = rows.sort((a, b) => {
-        const aText = a.querySelector(`td:nth-child(${column + 1})`).textContent.trim();
-        const bText = b.querySelector(`td:nth-child(${column + 1})`).textContent.trim();
-
-        let aValue, bValue;
-
-        if (type === 'numeric') {
-            aValue = parseFloat(aText);
-            bValue = parseFloat(bText);
-        } else if (type === 'isochrone') {
-            aValue = parseInt(aText.split('-')[1], 10);
-            bValue = parseInt(bText.split('-')[1], 10);
-        } else {
-            aValue = aText;
-            bValue = bText;
-        }
-
-        if (aValue < bValue) {
-            return -1 * dirModifier;
-        }
-        if (aValue > bValue) {
-            return 1 * dirModifier;
-        }
-        return 0;
-    });
-
-    // Remove all existing TRs from the table
-    while (tBody.firstChild) {
-        tBody.removeChild(tBody.firstChild);
-    }
-
-    // Re-add the newly sorted rows
-    tBody.append(...sortedRows);
-}
