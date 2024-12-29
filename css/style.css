@@ -1,13 +1,23 @@
 body {
     display: flex;
     margin: 0;
-    font-family: Arial, sans-serif;
+    font-family: 'Roboto', sans-serif;
     height: 100vh;
     overflow: hidden;
+
+
+    body.dark-mode {
+        background-color: #121212;
+        color: #ffffff;
+    }
+    
+}
+h2 {
+    font-weight: 700;
 }
 
 #controls {
-    width: 15%;
+    min-width: 15%;
     background-color: #f9f9f9;
     padding: 15px;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
@@ -20,16 +30,19 @@ body {
 #map {
     flex-grow: 1;
     height: 100vh;
+    background: linear-gradient(180deg, #e0f7fa, #80deea);
 }
 
 #infoPanel {
     width: 25%;
+    min-width: 25%;
     background-color: #ffffff;
     padding: 15px;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+
 }
 
 #infoPanel h2 {
@@ -40,12 +53,14 @@ body {
 table {
     width: 100%;
     border-collapse: collapse;
+    table-layout: fixed; 
 }
 
 th, td {
     padding: 10px;
-    text-align: center;
-    border: 1px solid #ddd;
+    text-align: center; /* Centra horizontalmente */
+    vertical-align: middle; /* Centra verticalmente */
+    border: 1px solid #ddd; /* Opcional: para bordes */
 }
 
 th {
@@ -70,10 +85,13 @@ tbody tr:hover {
     color: #fff;
     cursor: pointer;
     border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .button-group button:hover {
     background-color: #0056b3;
+    transform: scale(1.05);
+    
 }
 
 .form-group {
@@ -85,4 +103,25 @@ tbody tr:hover {
     flex-direction: column;
     gap: 10px;
     margin-top: 10px;
+}
+table.dataTable th.dt-type-numeric, 
+table.dataTable td.dt-type-numeric {
+    text-align: center !important; /* Sobrescribe el texto alineado a la derecha */
+}
+table.dataTable th, 
+table.dataTable td {
+    text-align: center !important;
+}
+
+@media (max-width: 768px) {
+    #controls, #infoPanel {
+        width: 100%;
+        order: 1;
+    }
+    #map {
+        height: 50vh;
+    }
+}
+#controls, #infoPanel {
+    transition: all 0.3s ease-in-out;
 }
