@@ -54,34 +54,80 @@ map.on('click', function (e) {
     });
 });
 
+// Ensure DataTable is initialized
 $(document).ready(function () {
-    // Inicialización de la tabla
-    if (!$.fn.dataTable.isDataTable('#isochroneTable')) {
-        dataTable = $('#isochroneTable').DataTable({
-            "language": {
-                "url": "https://cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json"
-            },
-            "order": [],
-            "paging": false,
-            "searching": false,
-            "info": false,
-            "columns": [
-                { "data": "identifier" },
-                { "data": "timeInMinutes" },
-                { "data": "population" },
-                { "data": "mode" }
-            ]
-        });
+    dataTable = $('#isochroneTable').DataTable({
+        "language": {
+            "url": "https://cdn.datatables.net/plug-ins/2.1.8/i18n/es-ES.json"
+        },
+        "order": [],
+        "paging": false,
+        "searching": true,
+        "info": false,
+        "columns": [
+            { "data": "identifier_simp" },
+            { "data": "timeInMinutes" },
+            { "data": "population" },
+            { "data": "mode" }
+        ]
+    });
+
+    
+ // Eventos de la tabla
+ $('#isochroneTable tbody').on('mouseenter', 'tr', function() {
+    const data = dataTable.row(this).data();
+    if (data) {
+        const matchingLayer = isochroneLayers.find(layer => 
+            layer.feature && 
+            layer.feature.properties && 
+            layer.feature.properties.identifier === data.identifier
+        );
+        
+        if (matchingLayer) {
+            const originalColor = getColorForCombination(
+                matchingLayer.feature.properties.timeInMinutes, 
+                matchingLayer.feature.properties.mode
+            );
+            
+            matchingLayer.setStyle({
+                weight: 4,
+                color: originalColor, // Usar el color original
+                opacity: 1,
+                fillOpacity: 0.5
+            });
+            matchingLayer.bringToFront();
+        }
     }
 });
 
+$('#isochroneTable tbody').on('mouseleave', 'tr', function() {
+    const data = dataTable.row(this).data();
+    if (data) {
+        const matchingLayer = isochroneLayers.find(layer => 
+            layer.feature && 
+            layer.feature.properties && 
+            layer.feature.properties.identifier === data.identifier
+        );
+        
+        if (matchingLayer) {
+            matchingLayer.setStyle({
+                weight: 2,
+                color: getColorForCombination(matchingLayer.feature.properties.timeInMinutes, 
+                                            matchingLayer.feature.properties.mode),
+                opacity: 1,
+                fillOpacity: 0.2
+            });
+        }
+    }
+});
+});
 
 // Función para inicializar o recuperar la tabla de datos
 function initializeIsochroneTable(selector = '#isochroneTable') {
     if (!$.fn.dataTable.isDataTable(selector)) {
         return $(selector).DataTable({
-            paging: true,
-            searching: false,
+            paging: false,
+            searching: true,
             ordering: true,
             info: false,
             language: {
@@ -102,16 +148,10 @@ function initializeIsochroneTable(selector = '#isochroneTable') {
     return $(selector).DataTable(); // Devuelve la instancia existente
 }
 
-
-
-
-
 async function generateIsochrones() {
-    const table = initializeIsochroneTable(); 
-    console.log('Tabla inicializada:', table);
-
     const input = document.getElementById('isochroneInput').value;
     const transportMode = document.getElementById('transport-mode').value;
+
 
     if (!input || points.length === 0) {
         alert('Introduce los tiempos y selecciona al menos un punto.');
@@ -123,77 +163,43 @@ async function generateIsochrones() {
     const adjustedTimes = times.map(t => t * trafficFactor);
     const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
 
-    isochroneLayers = [];
-    isochronesData = []; // Limpiar los datos previos
-
     try {
+        const initialDataSize = isochronesData.length;
+
         const promises = coords.flatMap((coord, pointIndex) => {
-            const pointId = pointIndex + 1;
+            const pointId = pointIdentifiers.get(points[pointIndex]);
             return times.map((time, index) => {
+                const timeInMinutes = time / 60;
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
                 if (!generatedCombinations.has(combinationKey)) {
                     generatedCombinations.add(combinationKey);
                     return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time);
                 }
-                return Promise.resolve(); // Si la combinación ya fue generada, no realizar la petición
+                return Promise.resolve();
             });
         });
+        
         await Promise.all(promises);
 
-        if (isochronesData.length === 0) {
-            console.warn('No se generaron isocronas, pero la respuesta de la API parece estar vacía.');
-            return;
-        }
-
-        // Actualizar la tabla con los nuevos datos
-       
-        isochronesData.forEach(data => {
-            table.row.add({
-                identifier: data.geojson.properties.identifier,
-                timeInMinutes: data.timeInMinutes,
-                population: data.population,
-                mode: data.geojson.properties.mode
+        const newData = isochronesData.slice(initialDataSize);
+        if (newData.length > 0) {
+            newData.forEach(data => {
+                const rowData = {
+                    identifier: data.geojson.properties.identifier,
+                    identifier_simp: data.geojson.properties.identifier_simp,
+                    timeInMinutes: data.timeInMinutes,
+                    population: data.population,
+                    mode: data.geojson.properties.mode
+                };
+                dataTable.row.add(rowData);
             });
-        });
-        table.draw(); // Redibujar la tabla para mostrar los nuevos datos
-
-        isochroneLayers.forEach(layer => {
-            const feature = layer.feature;
-            console.log('Feature:', feature);  // Añadido para depurar la estructura del feature
-
-            if (feature && feature.properties) {
-                console.log('Propiedades de la característica:', feature.properties);
-                const isochroneLayer = L.geoJSON(feature, {
-                    style: {
-                        color: getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode),
-                        weight: 2,
-                        fillOpacity: 0.2
-                    }
-                }).addTo(isochronesLayer); // Asegúrate de añadir la capa a la capa de isocronas
-
-                isochroneLayer.eachLayer(function (layer) {
-                    const featureProperties = layer.feature.properties;
-                    console.log('Properties:', featureProperties);
-
-                    layer.bindPopup(
-                        `${featureProperties.identifier}: ${featureProperties.timeInMinutes} minutos<br>Población: ${featureProperties.population.toLocaleString()} hab.<br>Modo: ${featureProperties.mode}`
-                    );
-                });
-            } else {
-               // console.warn("Feature or properties not found",feature.properties);
-            }
-        });
+            dataTable.draw();
+        }
 
     } catch (error) {
         console.error('Error al generar isocronas:', error);
     }
 }
-
-
-
-
-
-
 function translateTransportMode(mode) {
     switch (mode) {
         case 'foot-walking':
@@ -239,124 +245,106 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
 
         if (data?.features?.length) {
             data.features.forEach((feature) => {
-                console.log('Feature:', feature);
                 const properties = feature.properties;
                 const population = properties.total_pop ?? 0;
                 const timeInMinutes = time / 60;
-                const identifier = `Punto ${pointId}`;
+                const identifier = `${pointId}-${timeInMinutes}min-${Date.now()}`; // Identificador interno único
+                const identifier_simp = `${pointId}`;
                 const mode = translateTransportMode(transportMode);
 
-                feature.properties = {
+                const newProperties = {
                     ...properties,
                     timeInMinutes: timeInMinutes,
                     population: population,
                     identifier: identifier,
+                    identifier_simp: identifier_simp,
                     mode: mode
                 };
 
-                isochronesData.push({
-                    timeInMinutes: timeInMinutes,
-                    population: population,
-                    geojson: feature
-                });
-
-                // Crear una capa de la isocrona
-                const color = getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode);
+                feature.properties = newProperties;
 
                 const isochroneLayer = L.geoJSON(feature, {
-                    style: {
-                        color: color,
-                        weight: 2,
-                        fillOpacity: 0.2
+                    style: function(feature) {
+                        return {
+                            color: getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode),
+                            weight: 2,
+                            opacity: 1,
+                            fillOpacity: 0.2,
+                            fillColor: getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode)
+                        };
                     }
                 }).addTo(isochronesLayer);
 
+                isochroneLayer.feature = feature;
                 isochroneLayers.push(isochroneLayer);
 
-                // Añadir un popup a cada capa
-                isochroneLayer.eachLayer(function (layer) {
-                    console.log(layer);
-                    const featureProperties = layer.feature.properties;
-                    console.log(featureProperties);
-                    if (featureProperties) {
-                        layer.bindPopup(
-                            `${featureProperties.identifier}: ${featureProperties.timeInMinutes} minutos<br>Población: ${featureProperties.population.toLocaleString()} hab.<br>Modo: ${featureProperties.mode}`
-                        );
+                const isochroneData = {
+                    timeInMinutes: timeInMinutes,
+                    population: population,
+                    geojson: feature
+                };
+                isochronesData.push(isochroneData);
 
-                        // Asegúrate de que la tabla esté bien referenciada
-                        const table = document.getElementById('isochroneTable'); // Cambia 'miTabla' por el ID correcto de tu tabla
-
-                        // Agregar una fila a la tabla
-                        addRowToTable(table, {
-                            identifier: featureProperties.identifier,
-                            timeInMinutes: featureProperties.timeInMinutes,
-                            population: featureProperties.population,
-                            mode: featureProperties.mode
-                        });
-                    } else {
-                        console.warn("No properties found for feature");
-                    }
-                });
+                isochroneLayer.bindPopup(
+                    `${identifier_simp}<br>${timeInMinutes} minutos<br>Población: ${population.toLocaleString()} hab.<br>Modo: ${mode}`
+                );
             });
-        } else {
-            console.warn("No features found in the response");
         }
     } catch (error) {
         console.error("Error al generar isocronas:", error);
     }
 }
-
-function addRowToTable(table, data) {
-    if (!table) {
-        console.error("La tabla no se encontró");
-        return;
+function highlightIsochrone(identifier) {
+    const layer = isochroneLayers.find(layer => layer.feature.properties.identifier === identifier);
+    if (layer) {
+        layer.setStyle({
+            weight: 5,
+            color: getColorForCombination(layer.feature.properties.timeInMinutes, layer.feature.properties.mode),
+            fillOpacity: 0.5
+        });
     }
-    const row = table.insertRow();
-    Object.keys(data).forEach((key) => {
-        const cell = row.insertCell();
-        cell.textContent = data[key];
-    });
 }
 
-
-
-
-
+function resetIsochroneHighlight(identifier) {
+    const layer = isochroneLayers.find(layer => layer.feature.properties.identifier === identifier);
+    if (layer) {
+        layer.setStyle({
+            weight: 2,
+            color: getColorForCombination(layer.feature.properties.timeInMinutes, layer.feature.properties.mode),
+            fillOpacity: 0.2
+        });
+    }
+}
 function resetMap() {
-    // Limpiar las capas de isocronas del mapa
     isochronesLayer.clearLayers();
     points.forEach(p => map.removeLayer(p));
     points = [];
 
-    const table = initializeIsochroneTable();
-    console.log('Tabla inicializada:', table);
-    table.clear().draw(); // Limpiar datos de la tabla
+    dataTable.clear().draw();
 
-    // Reiniciar variables
-    isochroneCounter = 1; // Reiniciar el contador de isocronas
-    availableIdentifiers.length = 0; // Vaciar los identificadores disponibles
-    reservedIdentifiers.clear(); // Vaciar los identificadores reservados
-    isochronesData = []; // Vaciar el contenido de las isocronas
-    isochroneLayers = []; // Limpiar las capas de isocronas almacenadas
-    generatedCombinations.clear(); // Vaciar las combinaciones generadas
+    isochroneCounter = 1;
+    availableIdentifiers.length = 0;
+    reservedIdentifiers.clear();
+    isochronesData = [];
+    isochroneLayers = [];
+    generatedCombinations.clear();
+    pointIdentifiers.clear();
 
     console.log("Mapa y datos reseteados correctamente.");
 }
 
-
 function exportData() {
-    // Crear un objeto GeoJSON
     const geojson = {
         type: "FeatureCollection",
         features: isochronesData.map((data) => ({
             type: "Feature",
             properties: {
-                id: data.geojson.properties.identifier, // Usar el ID preexistente
-                Tiempo: data.timeInMinutes, // Tiempo asociado
-                Población: data.population, // Población asociada
-                Modo: data.geojson.properties.mode // Añadir modo de transporte
+                id: data.geojson.properties.identifier_simp, // Usar el ID simplificado para la exportación
+                Tiempo: data.timeInMinutes,
+                Población: data.population,
+                Modo: data.geojson.properties.mode
             },
-            geometry: data.geojson.geometry // Geometría de la isocrona
+            geometry: data.geojson.geometry
         }))
     };
 
@@ -375,6 +363,3 @@ function exportData() {
 
 let table;
 
-document.addEventListener('DOMContentLoaded', () => {
-    initializeIsochroneTable(); // Llamar a la función para inicializar la tabla
-    });
