@@ -17,7 +17,8 @@ h2 {
 }
 
 #controls {
-    min-width: 15%;
+    width: 20%; /* Ancho reducido */
+    min-width: 10%; /* Mínimo ancho reducido */
     background-color: #f9f9f9;
     padding: 15px;
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
@@ -34,8 +35,8 @@ h2 {
 }
 
 #infoPanel {
-    width: 25%;
-    min-width: 25%;
+    width: 25%; /* Ancho reducido */
+    min-width: 15%; /* Mínimo ancho reducido */
     background-color: #ffffff;
     padding: 15px;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
@@ -89,10 +90,14 @@ tbody tr:hover {
 }
 
 .button-group button:hover {
-    background-color: #0056b3;
+    background-color: #FF6B6B;
     transform: scale(1.05);
     
 }
+
+
+
+
 
 .form-group {
     margin-bottom: 10px;
@@ -125,3 +130,10 @@ table.dataTable td {
 #controls, #infoPanel {
     transition: all 0.3s ease-in-out;
 }
+
+
+/* Clase para cambiar el tono de color */
+img.dynamic-hue {
+    filter: hue-rotate(0deg) saturate(4);
+}
+
