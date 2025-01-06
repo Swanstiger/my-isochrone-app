@@ -1,5 +1,6 @@
 body {
     display: flex;
+    
     margin: 0;
     font-family: 'Roboto', sans-serif;
     height: 100vh;
@@ -26,6 +27,14 @@ h2 {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    
+}
+
+
+#controls h3 {
+    text-align: center;
+
+    margin: 0; /* Removes any default margin that might affect centering */
 }
 
 #map {
@@ -35,16 +44,16 @@ h2 {
 }
 
 #infoPanel {
-    width: 25%; /* Ancho reducido */
-    min-width: 15%; /* Mínimo ancho reducido */
+    width: 25%;
+    min-width: 15%;
+    max-width: 30%; /* Limita el ancho máximo */
     background-color: #ffffff;
     padding: 15px;
     box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-
-}
+    transition: width 0.3s ease-in-out; /* Añade una transición suave */
 
 #infoPanel h2 {
     font-size: 18px;
@@ -54,7 +63,7 @@ h2 {
 table {
     width: 100%;
     border-collapse: collapse;
-    table-layout: fixed; 
+    table-layout: flex; 
 }
 
 th, td {
@@ -95,7 +104,11 @@ tbody tr:hover {
     
 }
 
-
+.section-title {
+    text-align: center;
+    font-weight: bold; /* Ensures both titles have the same font weight */
+    margin: 0; /* Removes any default margin that might affect centering */
+}
 
 
 
@@ -109,14 +122,42 @@ tbody tr:hover {
     gap: 10px;
     margin-top: 10px;
 }
-table.dataTable th.dt-type-numeric, 
 table.dataTable td.dt-type-numeric {
     text-align: center !important; /* Sobrescribe el texto alineado a la derecha */
 }
-table.dataTable th, 
 table.dataTable td {
     text-align: center !important;
 }
+/* Alinea el texto del encabezado al centro inicialmente */
+table.dataTable th {
+    text-align: center;
+    padding-left: 5px; /* Añade un mínimo de 5px de espacio para el icono de ordenación */
+    position: relative; /* Necesario para posicionar el icono de forma absoluta */
+}
+
+/* Ajusta la posición del icono de ordenación a la derecha */
+table.dataTable th .sorting:after,
+table.dataTable th .sorting_asc:after,
+table.dataTable th .sorting_desc:after {
+    position: absolute;
+    right: 5px; /* Mueve el icono 5px más a la derecha */
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 5px; /* Asegura que haya al menos 5px de espacio entre el texto y el icono */
+}
+
+/* -------------------------------------------------- */
+/* Sorting icons and positioning overrides */
+/* Previously displayed two separate icons, hide first one */
+table.dataTable thead .dt-column-order {
+    top: 0.18em !important;
+    right: auto !important;
+    font-family: 'Material Icons' !important;
+    font-size: 0.8em !important;
+    line-height: 1 !important; /* Ensure consistent line height */
+    margin-left: 5px !important; /* Adjust as needed to move slightly to the right of the text */
+}
+
 
 @media (max-width: 768px) {
     #controls, #infoPanel {

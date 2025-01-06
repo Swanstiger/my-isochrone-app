@@ -236,7 +236,7 @@ async function generateIsochrones() {
         return;
     }
 
-    let trafficFactor = transportMode === "driving-car" ? 0.55 : 0.85;
+    let trafficFactor = transportMode === "driving-car" ? 0.55 : 0.80;
     const times = input.split(',').map(t => parseInt(t.trim()) * 60);
     const adjustedTimes = times.map(t => t * trafficFactor);
     const coords = points.map(p => p.getLatLng()).map(latlng => [latlng.lng, latlng.lat]);
@@ -364,7 +364,7 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
                 isochronesData.push(isochroneData);
 
                 isochroneLayer.bindPopup(
-                    `${identifier_simp}<br>${timeInMinutes} minutos<br>Población: ${population.toLocaleString()} hab.<br>Modo: ${mode}`
+                    `Iso: ${identifier_simp}<br>Tiempo: ${timeInMinutes} minutos<br>Población: ${population.toLocaleString()} hab.<br>Modo: ${mode}`
                 );
             });
         }
