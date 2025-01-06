@@ -1,4 +1,4 @@
-const apiKey = "5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83"; // Reemplaza con tu clave de OpenRouteService
+const apiKey = process.env.ORS_API_KEY; // Reemplaza con tu clave de OpenRouteService
 const apiUrl = "https://api.openrouteservice.org/v2/isochrones/"; // Asegúrate de que está definido correctamente
 
 // Inicializar el mapa centrado en Valencia
