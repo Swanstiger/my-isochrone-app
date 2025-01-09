@@ -12,14 +12,15 @@ export default async function handler(req, res) {
     const { coord, adjustedTimes, pointId, transportMode, time} = req.body;
     console.log('API Key:', apiKey);  // Agregar para depurar
 
- 
+    const translatedMode = translateTransportMode(transportMode);
     // Construir la URL con el modo traducido
-    const url = `https://api.openrouteservice.org/v2/isochrones/${translatedMode}`;
+    const url = 'https://api.openrouteservice.org/v2/isochrones/${translatedMode}';
 
     try {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
+                'Authorization': apiKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
