@@ -45,6 +45,7 @@ export default async function handler(req, res) {
                 range: times
             })
         });
+        const text = await response.text(); console.log('Respuesta ORS:', response.status, text);
 
         if (!response.ok) {
             throw new Error('Error en la solicitud a OpenRouteService');
