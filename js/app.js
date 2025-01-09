@@ -232,7 +232,6 @@ async function generateIsochrones() {
     const input = document.getElementById('isochroneInput').value;
     const transportMode = document.getElementById('transport-mode').value;
 
-
     if (!input || points.length === 0) {
         alert('Introduce los tiempos y selecciona al menos un punto.');
         return;
@@ -253,12 +252,12 @@ async function generateIsochrones() {
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
                 if (!generatedCombinations.has(combinationKey)) {
                     generatedCombinations.add(combinationKey);
-                    return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time);
+                    return fetchIsochrones([coord], [adjustedTimes[index]], transportMode); // Corregido
                 }
                 return Promise.resolve();
             });
         });
-        
+
         await Promise.all(promises);
 
         const newData = isochronesData.slice(initialDataSize);
@@ -280,6 +279,7 @@ async function generateIsochrones() {
         console.error('Error al generar isocronas:', error);
     }
 }
+
 function translateTransportMode(mode) {
     switch (mode) {
         case 'foot-walking':
@@ -301,7 +301,7 @@ function getColorForCombination(time, mode) {
     return colorMap[key];
 }
 
-async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time) {
+async function fetchIsochrones(coords, times, mode) {
     try {
         const response = await fetch('/api/ors', {
             method: 'POST',
@@ -310,7 +310,6 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
             },
             body: JSON.stringify({ coords, times, mode })
         });
-        
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
@@ -369,6 +368,7 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
         console.error("Error al generar isocronas:", error);
     }
 }
+
 function highlightIsochrone(identifier) {
     const layer = isochroneLayers.find(layer => layer.feature.properties.identifier === identifier);
     if (layer) {

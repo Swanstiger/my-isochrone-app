@@ -3,7 +3,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Método no permitido' });
     }
 
-    const apiKey = process.env.ORS_API_KEY; // La API key se obtiene de las variables de entorno en Vercel
+    const apiKey = process.env.ORS_API_KEY;
     const { coords, times, mode } = req.body;
 
     const url = `https://api.openrouteservice.org/v2/isochrones/${mode}`;
