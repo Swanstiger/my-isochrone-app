@@ -9,12 +9,14 @@ export default async function handler(req, res) {
     console.log('Datos recibidos:', req.body); 
 
     const apiKey = process.env.ORS_API_KEY;
+    console.log('API Key:', apiKey); 
     const { coord, adjustedTimes, pointId, transportMode, time} = req.body;
     console.log('API Key:', apiKey);  // Agregar para depurar
 
     const translatedMode = translateTransportMode(transportMode);
     // Construir la URL con el modo traducido
-    const url = 'https://api.openrouteservice.org/v2/isochrones/${translatedMode}';
+    const url = `https://api.openrouteservice.org/v2/isochrones/${translatedMode}`;
+
 
     try {
         const response = await fetch(url, {
