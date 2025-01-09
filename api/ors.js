@@ -13,10 +13,10 @@ export default async function handler(req, res) {
     console.log('API Key:', apiKey);  // Agregar para depurar
 
     // Traducir el modo de transporte
-    const translatedMode = translateTransportMode(mode);
+    const translatedMode = window.translateTransportMode(mode);
     if (!translatedMode) {
         console.error('Modo de transporte no válido');
-        return res.status(400).json({ error: 'Modo de transporte no válido' });
+        return;  // Salir si el modo no es válido
     }
 
     // Asegurarse de que los datos sean válidos

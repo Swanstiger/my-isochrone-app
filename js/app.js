@@ -281,16 +281,21 @@ async function generateIsochrones() {
     }
 }
 
-export function translateTransportMode(mode) {
+// Define la función directamente en el contexto global
+function translateTransportMode(mode) {
     switch (mode) {
         case 'foot-walking':
-            return 'foot-walking';  // 'A pie' mapeado al valor que espera OpenRouteService
+            return 'foot-walking'; // Para OpenRouteService
         case 'driving-car':
-            return 'driving-car';  // 'Coche' mapeado al valor que espera OpenRouteService
+            return 'driving-car'; // Para OpenRouteService
         default:
-            return null;  // Si el modo no es válido
+            return null;  // Retorna null si el modo no es válido
     }
 }
+
+// Asegúrate de que esté disponible globalmente
+window.translateTransportMode = translateTransportMode;
+
 
 function getColorForCombination(time, mode) {
     const key = `${time}-${mode}`;
