@@ -320,9 +320,7 @@ async function fetchIsochrones(coords,times, pointId, transportMode, time) {
             },
             body: JSON.stringify({ coords, times, mode:transportMode  })
         })
-        .then(response => response.json())
-        .then(data => console.log('Respuesta de la API:', data))
-        .catch(error => console.error('Error en la solicitud:', error));
+
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
