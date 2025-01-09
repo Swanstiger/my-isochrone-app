@@ -303,6 +303,10 @@ function getColorForCombination(time, mode) {
 }
 
 async function fetchIsochrones(coords, times, mode) {
+    console.log('Iniciando solicitud a la API');
+
+    console.log('Datos enviados:', { coords, times, mode });
+
     try {
         const response = await fetch('/api/ors', {
             method: 'POST',
@@ -310,7 +314,10 @@ async function fetchIsochrones(coords, times, mode) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ coords, times, mode })
-        });
+        })
+        .then(response => response.json())
+        .then(data => console.log('Respuesta de la API:', data))
+        .catch(error => console.error('Error en la solicitud:', error));
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
