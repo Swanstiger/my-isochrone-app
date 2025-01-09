@@ -314,12 +314,14 @@ async function fetchIsochrones(coords,times, pointId, transportMode) {
 
     try {
         const response = await fetch('/api/ors', { 
+
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({ coords, times, transportMode  })
         })
+        const text = await response.text(); console.log('Respuesta ORS:', response.status, text);
 
 
         if (!response.ok) {

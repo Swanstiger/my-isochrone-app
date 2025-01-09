@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     console.log('Datos recibidos:', req.body); 
 
     const apiKey = process.env.ORS_API_KEY;
-    const { coords, times, mode } = req.body;
+    const { coords, times, transportMode } = req.body;
     console.log('API Key:', apiKey);  // Agregar para depurar
 
     // Traducir el modo de transporte
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
                 range: times
             })
         });
-        
+
         const text = await response.text(); console.log('Respuesta ORS:', response.status, text);
 
         if (!response.ok) {
