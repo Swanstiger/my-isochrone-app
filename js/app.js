@@ -303,19 +303,14 @@ function getColorForCombination(time, mode) {
 
 async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time) {
     try {
-        const response = await fetch(`${apiUrl}${transportMode}`, {
+        const response = await fetch('/api/ors', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                Authorization: apiKey
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                locations: [coord],
-                range: adjustedTimes,
-                range_type: 'time',
-                attributes: ['total_pop']
-            })
+            body: JSON.stringify({ coords, times, mode })
         });
+        
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
