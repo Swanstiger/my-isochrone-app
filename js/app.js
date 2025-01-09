@@ -307,18 +307,18 @@ function getColorForCombination(time, mode) {
     return colorMap[key];
 }
 
-async function fetchIsochrones(coords,times, pointId, transportMode, time) {
+async function fetchIsochrones(coords,times, pointId, transportMode) {
     console.log('Iniciando solicitud a la API');
 
-    console.log('Datos enviados:', { coords, times, pointId, transportMode, time});
+    console.log('Datos enviados:', { coords, times, pointId, transportMode});
 
     try {
-        const response = await fetchIsochrones('/api/ors', {
+        const response = fetch('/api/ors', { 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ coords, times, mode:transportMode  })
+            body: JSON.stringify({ coords, times, transportMode  })
         })
 
 
