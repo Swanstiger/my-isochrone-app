@@ -313,7 +313,7 @@ async function fetchIsochrones(coords,times, pointId, transportMode, time) {
     console.log('Datos enviados:', { coords, times, pointId, transportMode, time});
 
     try {
-        const response = await fetch('/api/ors', {
+        const response = await fetchIsochrones('/api/ors', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
