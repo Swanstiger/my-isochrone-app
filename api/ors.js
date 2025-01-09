@@ -9,27 +9,10 @@ export default async function handler(req, res) {
     console.log('Datos recibidos:', req.body); 
 
     const apiKey = process.env.ORS_API_KEY;
-    const { coords, times, transportMode } = req.body;
+    const { coord, adjustedTimes, pointId, transportMode, time} = req.body;
     console.log('API Key:', apiKey);  // Agregar para depurar
 
-    // Traducir el modo de transporte
-    const translatedMode = translateTransportMode(mode);
-    if (!translatedMode) {
-        console.error('Modo de transporte no válido');
-        return;  // Salir si el modo no es válido
-    }
-
-    // Asegurarse de que los datos sean válidos
-    if (!coords || !Array.isArray(coords) || coords.length === 0) {
-        console.error('Coordenadas no válidas');
-        return res.status(400).json({ error: 'Coordenadas no válidas' });
-    }
-
-    if (!times || !Array.isArray(times) || times.length === 0) {
-        console.error('Tiempos no válidos');
-        return res.status(400).json({ error: 'Tiempos no válidos' });
-    }
-
+ 
     // Construir la URL con el modo traducido
     const url = `https://api.openrouteservice.org/v2/isochrones/${translatedMode}`;
 
@@ -37,12 +20,13 @@ export default async function handler(req, res) {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Authorization': apiKey,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                locations: coords,
-                range: times
+                locations: [coord],
+                range: adjustedTimes,
+                range_type: 'time',
+                attributes: ['total_pop']
             })
         });
 
