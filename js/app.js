@@ -252,11 +252,12 @@ async function generateIsochrones() {
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
                 if (!generatedCombinations.has(combinationKey)) {
                     generatedCombinations.add(combinationKey);
-                    return fetchIsochrones([coord], [adjustedTimes[index]], transportMode); // Corregido
+                    return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time); // Asegúrate de pasar "time" aquí
                 }
                 return Promise.resolve();
             });
         });
+        
 
         await Promise.all(promises);
 
