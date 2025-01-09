@@ -281,14 +281,14 @@ async function generateIsochrones() {
     }
 }
 
-function translateTransportMode(mode) {
+export function translateTransportMode(mode) {
     switch (mode) {
         case 'foot-walking':
-            return 'A pie';
+            return 'foot-walking';  // 'A pie' mapeado al valor que espera OpenRouteService
         case 'driving-car':
-            return 'Coche';
+            return 'driving-car';  // 'Coche' mapeado al valor que espera OpenRouteService
         default:
-            return mode;
+            return null;  // Si el modo no es válido
     }
 }
 
