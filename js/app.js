@@ -252,7 +252,7 @@ async function generateIsochrones() {
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
                 if (!generatedCombinations.has(combinationKey)) {
                     generatedCombinations.add(combinationKey);
-                    return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time); // Asegúrate de pasar "time" aquí
+                    return fetchIsochrones(coords, [adjustedTimes[index]], pointId, transportMode, time); // Asegúrate de pasar "time" aquí
                 }
                 return Promise.resolve();
             });
@@ -307,10 +307,10 @@ function getColorForCombination(time, mode) {
     return colorMap[key];
 }
 
-async function fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time) {
+async function fetchIsochrones(coords,times, pointId, transportMode, time) {
     console.log('Iniciando solicitud a la API');
 
-    console.log('Datos enviados:', { coord, [adjustedTimes[index]], pointId, transportMode, time});
+    console.log('Datos enviados:', { coords, times, pointId, transportMode, time});
 
     try {
         const response = await fetch('/api/ors', {
