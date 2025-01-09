@@ -3,8 +3,11 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Método no permitido' });
     }
 
+    console.log(req.body); // Agrega esto para verificar los datos que llegan
+
     const apiKey = process.env.ORS_API_KEY;
     const { coords, times, mode } = req.body;
+    console.log('API Key:', apiKey);  // Agregar para depurar
 
     const url = `https://api.openrouteservice.org/v2/isochrones/${mode}`;
 
