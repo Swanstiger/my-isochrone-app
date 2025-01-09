@@ -307,10 +307,10 @@ function getColorForCombination(time, mode) {
     return colorMap[key];
 }
 
-async function fetchIsochrones(coords, times, mode) {
+async function fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time) {
     console.log('Iniciando solicitud a la API');
 
-    console.log('Datos enviados:', { coords, times, mode });
+    console.log('Datos enviados:', { coord, [adjustedTimes[index]], pointId, transportMode, time});
 
     try {
         const response = await fetch('/api/ors', {
@@ -318,7 +318,7 @@ async function fetchIsochrones(coords, times, mode) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ coords, times, mode })
+            body: JSON.stringify({ coords, times, mode:transportMode  })
         })
         .then(response => response.json())
         .then(data => console.log('Respuesta de la API:', data))
@@ -329,6 +329,7 @@ async function fetchIsochrones(coords, times, mode) {
         }
 
         const data = await response.json();
+        console.log('Respuesta de la API:', data);
 
         if (data?.features?.length) {
             data.features.forEach((feature) => {
