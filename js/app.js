@@ -37,6 +37,10 @@ const geocodingControl = L.control.maptilerGeocoding({
     marker: false
 }).addTo(map);
 
+// Eliminar todas las cookies
+document.cookie.split(';').forEach(function(c) {
+    document.cookie = c.trim().replace(/^.+$/, '') + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+});
 
 
 
