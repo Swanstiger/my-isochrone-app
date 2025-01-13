@@ -33,7 +33,7 @@ let isochronesData = [];
 let isochroneLayers = [];
 let dataTable; // Variable para almacenar la instancia de DataTables
 let generatedCombinations = new Set(); // Conjunto para almacenar combinaciones generadas
-const colorMap = {}; // Mapa para almacenar colores asignados a combinaciones de tiempo y modo
+let colorMap = {}; // Mapa para almacenar colores asignados a combinaciones de tiempo y modo
 const pointIdentifiers = new Map(); // Mapa para almacenar identificadores únicos para cada punto
 let isochroneCounter = 1; // Contador global para asignar identificadores únicos
 const reservedIdentifiers = new Set(); // Conjunto para almacenar identificadores reservados
@@ -61,17 +61,27 @@ map.addLayer(drawnItems);
 
 // Configuración del control de dibujo
 const drawControl = new L.Control.Draw({
-    //edit: {
-        //featureGroup: drawnItems, // Grupo de capas que se pueden editar
-        //remove: false // Deshabilitar la opción de borrar
-    //},
     draw: {
-        polygon: true, // Habilitar dibujo de polígonos
-        polyline: false, // Habilitar dibujo de líneas
-        rectangle: true, // Habilitar dibujo de rectángulos
-        circle: false, // Habilitar dibujo de círculos
-        marker: false, 
-        circlemarker:false// Habilitar dibujo de marcadores
+        polygon: {
+            shapeOptions: {
+                color: 'black', // Cambiar el color del polígono a negro
+                weight: 2, // Grosor del borde del polígono
+                opacity: 1, // Opacidad del borde del polígono
+                fillOpacity: 0.2 // Opacidad del relleno del polígono
+            }
+        },
+        polyline: false, // Deshabilitar dibujo de líneas
+        rectangle: {
+            shapeOptions: {
+                color: 'black', // Cambiar el color del rectángulo a negro
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.2
+            }
+        },
+        circle: false, // Deshabilitar dibujo de círculos
+        marker: false,
+        circlemarker: false // Deshabilitar dibujo de marcadores
     }
 });
 map.addControl(drawControl);
@@ -235,10 +245,7 @@ $(document).ready(function () {
         );
         
         if (matchingLayer) {
-            const originalColor = getColorForCombination(
-                matchingLayer.feature.properties.timeInMinutes, 
-                matchingLayer.feature.properties.mode
-            );
+            const originalColor = getRandomColor();
             
             matchingLayer.setStyle({
                 weight: 4,
@@ -263,8 +270,7 @@ $('#isochroneTable tbody').on('mouseleave', 'tr', function() {
         if (matchingLayer) {
             matchingLayer.setStyle({
                 weight: 2,
-                color: getColorForCombination(matchingLayer.feature.properties.timeInMinutes, 
-                                            matchingLayer.feature.properties.mode),
+                color:getRandomColor(),
                 opacity: 1,
                 fillOpacity: 0.2
             });
@@ -337,10 +343,10 @@ async function generateIsochrones() {
             return times.map((time, index) => {
                 const timeInMinutes = time / 60;
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
-                if (!generatedCombinations.has(combinationKey)) {
-                    generatedCombinations.add(combinationKey);
+                //if (!generatedCombinations.has(combinationKey)) {
+                    //generatedCombinations.add(combinationKey);
                     return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time);
-                }
+                
                 return Promise.resolve();
             });
         });
@@ -377,14 +383,12 @@ function translateTransportMode(mode) {
     }
 }
 
-function getColorForCombination(time, mode) {
-    const key = `${time}-${mode}`;
-    if (!colorMap[key]) {
-        // Generar un color único basado en el tiempo y el modo
-        const hue = (Object.keys(colorMap).length * 137) % 360; // Distribuir colores en el espectro
-        colorMap[key] = `hsl(${hue}, 70%, 50%)`;
-    }
-    return colorMap[key];
+function getRandomColor() {
+
+        // Generar un color aleatorio
+        const hue = Math.floor(Math.random() * 360); // Hue aleatorio entre 0 y 359
+        return `hsl(${hue}, 70%, 50%)`;
+
 }
 
 async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time) {
@@ -435,12 +439,13 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
 
                 const isochroneLayer = L.geoJSON(feature, {
                     style: function(feature) {
+                        const randomColor = getRandomColor();
                         return {
-                            color: getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode),
+                            color: randomColor,
                             weight: 2,
                             opacity: 1,
                             fillOpacity: 0.2,
-                            fillColor: getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode)
+                            fillColor: randomColor
                         };
                     }
                 }).addTo(isochronesLayer);
@@ -469,7 +474,7 @@ function highlightIsochrone(identifier) {
     if (layer) {
         layer.setStyle({
             weight: 5,
-            color: getColorForCombination(layer.feature.properties.timeInMinutes, layer.feature.properties.mode),
+            color: getRandomColor(),
             fillOpacity: 0.5
         });
     }
@@ -480,7 +485,7 @@ function resetIsochroneHighlight(identifier) {
     if (layer) {
         layer.setStyle({
             weight: 2,
-            color: getColorForCombination(layer.feature.properties.timeInMinutes, layer.feature.properties.mode),
+            color: getRandomColor(),
             fillOpacity: 0.2
         });
     }
