@@ -159,6 +159,7 @@ table.dataTable thead .dt-column-order {
 }
 
 
+    
 @media (max-width: 768px) {
     #controls, #infoPanel {
         width: 100%;

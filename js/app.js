@@ -1,8 +1,12 @@
 const apiKey = '5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83'; // Reemplaza con tu clave de OpenRouteService
 const apiUrl = "https://api.openrouteservice.org/v2/isochrones/"; // Asegúrate de que está definido correctamente
+const mapTilerApiKey = 'RJ5ZqIRlnUgWHqws2csE'; // Reemplaza con tu clave de MapTiler
 
 // Inicializar el mapa centrado en Valencia
-const map = L.map('map').setView([39.4699, -0.3763], 12);
+const map = L.map('map',{
+    zoomControl: false
+
+}).setView([39.4699, -0.3763], 12);
 
 // Capa base de OpenStreetMap
 const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -23,7 +27,19 @@ const baseLayers = {
     "Esri World Imagery": esriWorldImagery
 };
 
-L.control.layers(baseLayers).addTo(map);
+L.control.layers(baseLayers, null, { position: 'topleft' }).addTo(map); // Cambiar la posición a la esquina superior izquierda
+
+// Inicializar el control de geocodificación
+const geocodingControl = L.control.maptilerGeocoding({
+    apiKey: mapTilerApiKey,
+    position: 'topright', // Cambiar la posición a la esquina superior derecha
+    placeholder: 'Buscar ubicación...',
+    marker: false
+}).addTo(map);
+
+
+
+
 
 
 
