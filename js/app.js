@@ -371,11 +371,12 @@ async function generateIsochrones() {
                 const combinationKey = `${coord[0]},${coord[1]}-${time}-${transportMode}`;
                 if (!generatedCombinations.has(combinationKey)) {
                     generatedCombinations.add(combinationKey);
-                    return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time);
+                    return fetchIsochrones(coord, [adjustedTimes[index]], pointId, transportMode, time); // Asegúrate de pasar "time" aquí
                 }
                 return Promise.resolve();
             });
         });
+        
 
         await Promise.all(promises);
 
@@ -399,16 +400,21 @@ async function generateIsochrones() {
     }
 }
 
+// Define la función directamente en el contexto global
 function translateTransportMode(mode) {
     switch (mode) {
         case 'foot-walking':
-            return 'A pie';
+            return 'foot-walking'; // Para OpenRouteService
         case 'driving-car':
-            return 'Coche';
+            return 'driving-car'; // Para OpenRouteService
         default:
-            return mode;
+            return null;  // Retorna null si el modo no es válido
     }
 }
+
+// Asegúrate de que esté disponible globalmente
+window.translateTransportMode = translateTransportMode;
+
 
 function getColorForCombination(time, mode) {
     const key = `${time}-${mode}`;
@@ -419,16 +425,17 @@ function getColorForCombination(time, mode) {
     return colorMap[key];
 }
 
-async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time) {
+async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time){
+    console.log('Iniciando solicitud a la API');
+
+    console.log('Datos enviados:', {coord, adjustedTimes, pointId, transportMode, time});
+
     try {
-        
-        const response = await fetch(`${apiUrl}${transportMode}`, 
-        
-                {
+        const response = await fetch('/api/ors', { 
+
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                Authorization: apiKey
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 locations: [coord],
@@ -443,13 +450,15 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
                     }
                 }
             })
-        });
+        })
+        const text = await response.text(); console.log('Respuesta ORS:', response.status, text);
+
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
         }
         const data = await response.json();
-
+        console.log('Respuesta de la API:', data);
 
         if (data?.features?.length) {
             // Use a for...of loop instead of forEach to allow await
@@ -504,7 +513,6 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
         console.error("Error al generar isocronas:", error);
     }
 }
-
 
 function highlightIsochrone(identifier) {
     const layer = isochroneLayers.find(layer => layer.feature.properties.identifier === identifier);
