@@ -1,73 +1,128 @@
+const apiKey = '5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83';
+const apiUrl = "https://api.openrouteservice.org/v2/isochrones/";
+const ghslUrl = "https://sedac.ciesin.columbia.edu/arcgis/rest/services/ghsl/ghsl_pop/MapServer/0/query"; // GHSL API endpoint
+
+console.log(apiKey);
+
+const map = L.map('map', { drawControl: true }).setView([39.4699, -0.3763], 12);
 
 
-const apiKey = '5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83';// Reemplaza con tu clave de OpenRouteService
-const apiUrl = "https://api.openrouteservice.org/v2/isochrones/"; // Asegúrate de que está definido correctamente
-console.log(apiKey); 
-// Inicializar el mapa centrado en Valencia
-const map = L.map('map').setView([39.4699, -0.3763], 12);
 
-// Capa base de OpenStreetMap
 const openStreetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 });
-
-// Capa base de Esri World Imagery
 const esriWorldImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
 });
-
-// Añadir OpenStreetMap por defecto al mapa
 openStreetMap.addTo(map);
 
-// Control de capas para alternar entre OpenStreetMap y Esri
 const baseLayers = {
     "OpenStreetMap": openStreetMap,
     "Esri World Imagery": esriWorldImagery
 };
-
 L.control.layers(baseLayers).addTo(map);
-
-
 
 let isochronesLayer = L.layerGroup().addTo(map);
 let points = [];
 let isochronesData = [];
 let isochroneLayers = [];
-let dataTable; // Variable para almacenar la instancia de DataTables
-let generatedCombinations = new Set(); // Conjunto para almacenar combinaciones generadas
-const colorMap = {}; // Mapa para almacenar colores asignados a combinaciones de tiempo y modo
-const pointIdentifiers = new Map(); // Mapa para almacenar identificadores únicos para cada punto
-let isochroneCounter = 1; // Contador global para asignar identificadores únicos
-const reservedIdentifiers = new Set(); // Conjunto para almacenar identificadores reservados
-let availableIdentifiers = []; // Array para almacenar identificadores disponibles para reutilización
+let dataTable;
+let generatedCombinations = new Set();
+const colorMap = {};
+const pointIdentifiers = new Map();
+let isochroneCounter = 1;
+const reservedIdentifiers = new Set();
+let availableIdentifiers = [];
+let userPolygons = [];
+let multiPolygon = { type: "MultiPolygon", coordinates: [] };
 
-// Definir los colores disponibles para los marcadores
-const iconColors = [
-    'red',
-    'blue',
-    'green',
-    'orange',
-    'yellow',
-    'violet',
-    'grey',
-    'black'
+const iconColors = ['red', 'blue', 'green', 'orange', 'yellow', 'violet', 'grey', 'black'];
+let isochronesEditing = false; 
+let currentlyEditingLayer = null; // Keep track of the layer being edited
+let drawnItems = L.featureGroup().addTo(map); // Add this line here
+let avoidPolygons = []; // Array to store avoidance polygons
+// Use a named function for the click handler
+
+const polygonCoordinates = [
+    [39.492105420054536, -0.3900049085489087],
+    [39.48592442319326, -0.3656061163070862],
+    [39.47089113294288, -0.37470527642993556],
+    [39.48348202518289, -0.3957685306748607],
+    [39.492105420054536, -0.3900049085489087] // Cerrado
 ];
 
-// Mapa para almacenar los colores asignados a cada point_id
-const pointColorMap = new Map();
-let colorIndex = 0; // Controla la rotación de colores
+function convertToGeoJSONCoordinates(coordinates) {
+    return coordinates.map(([lat, lng]) => [lng, lat]);
+}
 
-map.on('click', function (e) {
+const avoidPolygonsGeoJSON = [
+    [convertToGeoJSONCoordinates(polygonCoordinates)]
+];
+
+
+function addAvoidPolygonToMap(coordinates) {
+    L.polygon(coordinates, { color: 'red' }).addTo(map);
+}
+
+
+addAvoidPolygonToMap(polygonCoordinates);
+
+function addIsochroneMarkerHandler(e) {
+    if (!isochronesEditing) {
+        addIsochroneMarker(e);
+    }
+}
+
+// Attach the click handler initially
+map.on('click', addIsochroneMarkerHandler);
+
+let isDrawing = false; // Flag to track drawing state
+
+map.on('draw:drawstart', (e) => {
+    isDrawing = true; // Set flag when drawing starts
+    // Remove the click handler to prevent isochrone markers during drawing
+    map.off('click', addIsochroneMarkerHandler);
+});
+
+map.on('draw:drawstop', (e) => {
+    isDrawing = false; // Reset flag when drawing stops
+    // Re-attach the click handler after drawing is complete
+    map.on('click', addIsochroneMarkerHandler);
+});
+
+map.on('draw:created', function (e) {
+    const layer = e.layer;
+    drawnItems.addLayer(layer);
+
+    // Convert drawn polygon to GeoJSON and add to userPolygons array
+    const polygonGeoJSON = layer.toGeoJSON();
+    userPolygons.push(polygonGeoJSON);
+
+    // Update multiPolygon with the new polygon coordinates
+    multiPolygon.coordinates.push(polygonGeoJSON.geometry.coordinates);
+});
+
+map.on('draw:deleted', function (e) {
+    // Remove deleted polygons from userPolygons and multiPolygon
+    const layers = e.layers;
+    layers.eachLayer(function (layer) {
+        const polygonGeoJSON = layer.toGeoJSON();
+        userPolygons = userPolygons.filter(polygon => !turf.booleanEqual(polygon, polygonGeoJSON));
+        multiPolygon.coordinates = multiPolygon.coordinates.filter(coords => !turf.booleanEqual({ type: "Polygon", coordinates: coords }, polygonGeoJSON));
+    });
+});
+
+const pointColorMap = new Map();
+let colorIndex = 0;
+
+function addIsochroneMarker(e) {
     let identifier;
-    
     if (availableIdentifiers.length > 0) {
-        const safeIdentifiers = availableIdentifiers.filter(id => 
-            !isochronesData.some(data => data.geojson.properties.identifier_simp === id)
+        const safeIdentifiers = availableIdentifiers.filter(
+            id => !isochronesData.some(data => data.geojson.properties.identifier_simp === id)
         );
-        
         if (safeIdentifiers.length > 0) {
             identifier = safeIdentifiers[0];
-            // Modificar el array usando métodos de array en lugar de reasignación
             availableIdentifiers = availableIdentifiers.filter(id => id !== identifier);
         } else {
             identifier = `ISO-${isochroneCounter++}`;
@@ -76,50 +131,37 @@ map.on('click', function (e) {
         identifier = `ISO-${isochroneCounter++}`;
     }
 
-    // Asignar un color al identificador si no tiene uno
     if (!pointColorMap.has(identifier)) {
         pointColorMap.set(identifier, iconColors[colorIndex % iconColors.length]);
         colorIndex++;
     }
 
-    // Crear un icono personalizado con el color asignado
     const customIcon = L.icon({
         iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${pointColorMap.get(identifier)}.png`,
         iconSize: [25, 41],
         iconAnchor: [12, 41],
         popupAnchor: [1, -34],
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
         shadowSize: [41, 41],
         shadowAnchor: [12, 41]
     });
 
-    const marker = L.marker(e.latlng, { 
-        draggable: true,
-        icon: customIcon 
-    }).addTo(map);
-    
+    const marker = L.marker(e.latlng, { draggable: true, icon: customIcon }).addTo(map);
+
     points.push(marker);
     pointIdentifiers.set(marker, identifier);
-    marker.bindPopup(identifier).openPopup();
 
-    // Cerrar el popup después de 1 segundo
-    setTimeout(() => {
-        marker.closePopup();
-    }, 1000);
+    marker.bindPopup(identifier).openPopup();
+    setTimeout(() => marker.closePopup(), 1000);
 
     marker.on('contextmenu', function () {
         const markerId = pointIdentifiers.get(marker);
-        
-        // Verificar si el punto tiene isocronas asociadas
-        const hasIsochrones = isochronesData.some(data => 
-            data.geojson.properties.identifier_simp === markerId
+        const hasIsochrones = isochronesData.some(
+            data => data.geojson.properties.identifier_simp === markerId
         );
 
         if (!hasIsochrones) {
-            // Si no tiene isocronas, podemos reutilizar el identificador
             availableIdentifiers.push(markerId);
         } else {
-            // Si tiene isocronas, lo marcamos como reservado
             reservedIdentifiers.add(markerId);
         }
 
@@ -127,9 +169,8 @@ map.on('click', function (e) {
         points = points.filter(p => p !== marker);
         pointIdentifiers.delete(marker);
     });
-});
+}
 
-// Ensure DataTable is initialized
 $(document).ready(function () {
     dataTable = $('#isochroneTable').DataTable({
         "language": {
@@ -147,62 +188,140 @@ $(document).ready(function () {
         ]
     });
 
-    
- // Eventos de la tabla
- $('#isochroneTable tbody').on('mouseenter', 'tr', function() {
-    const data = dataTable.row(this).data();
-    if (data) {
-        const matchingLayer = isochroneLayers.find(layer => 
-            layer.feature && 
-            layer.feature.properties && 
-            layer.feature.properties.identifier === data.identifier
-        );
-        
-        if (matchingLayer) {
-            const originalColor = getColorForCombination(
-                matchingLayer.feature.properties.timeInMinutes, 
-                matchingLayer.feature.properties.mode
+    $('#isochroneTable tbody').on('mouseenter', 'tr', function () {
+        const data = dataTable.row(this).data();
+        $('#editIsochroneButton').click(toggleIsochroneEditing);
+        if (data) {
+            const matchingLayer = isochroneLayers.find(layer =>
+                layer.feature &&
+                layer.feature.properties &&
+                layer.feature.properties.identifier === data.identifier
             );
-            
-            matchingLayer.setStyle({
-                weight: 4,
-                color: originalColor, // Usar el color original
-                opacity: 1,
-                fillOpacity: 0.5
-            });
-            matchingLayer.bringToFront();
+
+            if (matchingLayer) {
+                const originalColor = getColorForCombination(
+                    matchingLayer.feature.properties.timeInMinutes,
+                    matchingLayer.feature.properties.mode
+                );
+
+                matchingLayer.setStyle({
+                    weight: 4,
+                    color: originalColor,
+                    opacity: 1,
+                    fillOpacity: 0.5
+                });
+                matchingLayer.bringToFront();
+            }
         }
-    }
-});
+    });
 
-$('#isochroneTable tbody').on('mouseleave', 'tr', function() {
-    const data = dataTable.row(this).data();
-    if (data) {
-        const matchingLayer = isochroneLayers.find(layer => 
-            layer.feature && 
-            layer.feature.properties && 
-            layer.feature.properties.identifier === data.identifier
-        );
-        
-        if (matchingLayer) {
-            matchingLayer.setStyle({
-                weight: 2,
-                color: getColorForCombination(matchingLayer.feature.properties.timeInMinutes, 
-                                            matchingLayer.feature.properties.mode),
-                opacity: 1,
-                fillOpacity: 0.2
-            });
+    $('#isochroneTable tbody').on('mouseleave', 'tr', function () {
+        const data = dataTable.row(this).data();
+        if (data) {
+            const matchingLayer = isochroneLayers.find(layer =>
+                layer.feature &&
+                layer.feature.properties &&
+                layer.feature.properties.identifier === data.identifier
+            );
+
+            if (matchingLayer) {
+                matchingLayer.setStyle({
+                    weight: 2,
+                    color: getColorForCombination(matchingLayer.feature.properties.timeInMinutes,
+                        matchingLayer.feature.properties.mode),
+                    opacity: 1,
+                    fillOpacity: 0.2
+                });
+            }
         }
+    });
+});
+
+
+
+// Function to add a polygon to the map and the avoidPolygons array
+function addAvoidPolygon(coordinates) {
+    const polygon = L.polygon(coordinates, { color: 'red' }).addTo(map); // Visualize on map
+    avoidPolygons.push(coordinates);
+}
+
+
+// Example usage: Add your polygon coordinates here
+avoidPolygons = [
+    [
+        [
+            [-0.3900049085489087, 39.492105420054536],
+            [-0.3656061163070862, 39.48592442319326],
+            [-0.37470527642993556, 39.47089113294288],
+            [-0.3957685306748607, 39.48348202518289],
+            [-0.3900049085489087, 39.492105420054536]
+        ]
+    ]
+];
+
+
+
+
+
+
+
+
+
+
+// Function to enable/disable isochrone editing
+async function toggleIsochroneEditing() {
+    isochronesEditing = !isochronesEditing;
+
+    const editButton = document.getElementById('editIsochroneButton');
+    if (editButton) {
+        editButton.textContent = isochronesEditing ? 'Finalizar edición' : 'Editar isocrona';
     }
-});
-});
+
+
+    if (isochronesEditing) {
+        if (isochroneLayers.length > 0) {
+            const layerToEdit = isochroneLayers[0]; // Edit the first layer for now
+
+            const simplifiedGeoJSON = turf.simplify(layerToEdit.toGeoJSON(), { tolerance: 0.001, highQuality: false });
+            const simplifiedLayer = L.geoJSON(simplifiedGeoJSON, {
+                pointToLayer: function (geoJsonPoint, latlng) {
+                    return null;
+                }
+            }).addTo(map);
+
+            simplifiedLayer.pm.enable({
+                allowRemoval: false,
+                draggable: false,
+                vertexMarkerClass: 'vertex-marker',
+                midLatLngMarker: false
+            });
+
+    
+                
+    
+
+            currentlyEditingLayer = simplifiedLayer;
+
+
+
+        } else {
+            alert("No hay isocronas para editar.");
+            isochronesEditing = false; // Reset editing state
+            if (editButton) {
+                editButton.textContent = 'Editar isocrona';
+            }
+        }
+
+    } else if (currentlyEditingLayer) {
+        currentlyEditingLayer.pm.disable();
+        map.removeLayer(currentlyEditingLayer);
+        currentlyEditingLayer = null;
+    }
+}
 
 
 
 
-
-
-// Función para inicializar o recuperar la tabla de datos
 function initializeIsochroneTable(selector = '#isochroneTable') {
     if (!$.fn.dataTable.isDataTable(selector)) {
         return $(selector).DataTable({
@@ -225,13 +344,12 @@ function initializeIsochroneTable(selector = '#isochroneTable') {
             ]
         });
     }
-    return $(selector).DataTable(); // Devuelve la instancia existente
+    return $(selector).DataTable();
 }
 
 async function generateIsochrones() {
     const input = document.getElementById('isochroneInput').value;
     const transportMode = document.getElementById('transport-mode').value;
-
 
     if (!input || points.length === 0) {
         alert('Introduce los tiempos y selecciona al menos un punto.');
@@ -258,7 +376,7 @@ async function generateIsochrones() {
                 return Promise.resolve();
             });
         });
-        
+
         await Promise.all(promises);
 
         const newData = isochronesData.slice(initialDataSize);
@@ -280,6 +398,7 @@ async function generateIsochrones() {
         console.error('Error al generar isocronas:', error);
     }
 }
+
 function translateTransportMode(mode) {
     switch (mode) {
         case 'foot-walking':
@@ -294,8 +413,7 @@ function translateTransportMode(mode) {
 function getColorForCombination(time, mode) {
     const key = `${time}-${mode}`;
     if (!colorMap[key]) {
-        // Generar un color único basado en el tiempo y el modo
-        const hue = (Object.keys(colorMap).length * 137) % 360; // Distribuir colores en el espectro
+        const hue = (Object.keys(colorMap).length * 137) % 360;
         colorMap[key] = `hsl(${hue}, 70%, 50%)`;
     }
     return colorMap[key];
@@ -303,7 +421,10 @@ function getColorForCombination(time, mode) {
 
 async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, time) {
     try {
-        const response = await fetch(`${apiUrl}${transportMode}`, {
+        
+        const response = await fetch(`${apiUrl}${transportMode}`, 
+        
+                {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -312,25 +433,34 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
             body: JSON.stringify({
                 locations: [coord],
                 range: adjustedTimes,
+                smoothing:1,
                 range_type: 'time',
-                attributes: ['total_pop']
+                attributes: ['total_pop'],
+                options: {
+                    avoid_polygons: {
+                        type: "MultiPolygon",
+                        coordinates: avoidPolygonsGeoJSON
+                    }
+                }
             })
         });
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
         }
-
         const data = await response.json();
 
+
         if (data?.features?.length) {
-            data.features.forEach((feature) => {
+            // Use a for...of loop instead of forEach to allow await
+            for (const feature of data.features) {
                 const properties = feature.properties;
                 const population = properties.total_pop ?? 0;
                 const timeInMinutes = time / 60;
-                const identifier = `${pointId}-${timeInMinutes}min-${Date.now()}`; // Identificador interno único
+                const identifier = `${pointId}-${timeInMinutes}min-${Date.now()}`;
                 const identifier_simp = `${pointId}`;
                 const mode = translateTransportMode(transportMode);
+
 
                 const newProperties = {
                     ...properties,
@@ -344,7 +474,7 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
                 feature.properties = newProperties;
 
                 const isochroneLayer = L.geoJSON(feature, {
-                    style: function(feature) {
+                    style: function (feature) {
                         return {
                             color: getColorForCombination(feature.properties.timeInMinutes, feature.properties.mode),
                             weight: 2,
@@ -368,12 +498,14 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
                 isochroneLayer.bindPopup(
                     `Iso: ${identifier_simp}<br>Tiempo: ${timeInMinutes} minutos<br>Población: ${population.toLocaleString()} hab.<br>Modo: ${mode}`
                 );
-            });
+            };
         }
     } catch (error) {
         console.error("Error al generar isocronas:", error);
     }
 }
+
+
 function highlightIsochrone(identifier) {
     const layer = isochroneLayers.find(layer => layer.feature.properties.identifier === identifier);
     if (layer) {
@@ -395,6 +527,7 @@ function resetIsochroneHighlight(identifier) {
         });
     }
 }
+
 function resetMap() {
     isochronesLayer.clearLayers();
     points.forEach(p => map.removeLayer(p));
@@ -419,7 +552,7 @@ function exportData() {
         features: isochronesData.map((data) => ({
             type: "Feature",
             properties: {
-                id: data.geojson.properties.identifier_simp, // Usar el ID simplificado para la exportación
+                id: data.geojson.properties.identifier_simp,
                 Tiempo: data.timeInMinutes,
                 Población: data.population,
                 Modo: data.geojson.properties.mode
@@ -428,10 +561,8 @@ function exportData() {
         }))
     };
 
-    // Convertir el objeto GeoJSON a una cadena JSON
     const geojsonString = JSON.stringify(geojson);
 
-    // Crear un blob y un enlace para descargar el archivo
     const blob = new Blob([geojsonString], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -441,5 +572,10 @@ function exportData() {
     URL.revokeObjectURL(url);
 }
 
-let table;
+function resetPoligons() {
+    drawnItems.clearLayers();
+    userPolygons = [];
+    multiPolygon.coordinates = [];
+}
+
 
