@@ -1,4 +1,4 @@
-const apiKey = process.env.ORS_API_KEY; // Reemplaza con tu clave de OpenRouteService
+const apiKey = '5b3ce3597851110001cf624845cfd06eb29d4faf8d5f3a0fea303e83'; // Reemplaza con tu clave de OpenRouteService
 const apiUrl = "https://api.openrouteservice.org/v2/isochrones/"; // Asegúrate de que está definido correctamente
 
 // Inicializar el mapa centrado en Valencia
@@ -55,7 +55,85 @@ const iconColors = [
 const pointColorMap = new Map();
 let colorIndex = 0; // Controla la rotación de colores
 
-map.on('click', function (e) {
+
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+
+// Configuración del control de dibujo
+const drawControl = new L.Control.Draw({
+    //edit: {
+        //featureGroup: drawnItems, // Grupo de capas que se pueden editar
+        //remove: false // Deshabilitar la opción de borrar
+    //},
+    draw: {
+        polygon: true, // Habilitar dibujo de polígonos
+        polyline: false, // Habilitar dibujo de líneas
+        rectangle: true, // Habilitar dibujo de rectángulos
+        circle: false, // Habilitar dibujo de círculos
+        marker: false, 
+        circlemarker:false// Habilitar dibujo de marcadores
+    }
+});
+map.addControl(drawControl);
+
+// Variable para almacenar los polígonos dibujados en formato GeoJSON
+let avoidPolygons = [];
+let isDrawing = false;
+// Evento para manejar la creación de nuevas capas
+map.on(L.Draw.Event.CREATED, function (event) {
+    const layer = event.layer;
+    drawnItems.addLayer(layer);
+
+    // Obtener coordenadas en el formato [lat, lng] y cerrarlas
+    const latlngs = layer.getLatLngs()[0];
+    if (latlngs.length > 0) {
+        latlngs.push(latlngs[0]); // Cerrar el polígono
+    }
+
+    // Convertir a formato GeoJSON [lng, lat]
+    const geojsonCoords = latlngs.map(latlng => [latlng.lng, latlng.lat]);
+
+    // Agregar el polígono como un MultiPolygon
+    avoidPolygons.push([geojsonCoords]);
+    // Desactivar el modo de dibujo
+isDrawing = false;
+});
+map.on(L.Draw.Event.DRAWSTART, function () { isDrawing = true; });
+
+
+// Evento para manejar la edición de polígonos
+map.on(L.Draw.Event.EDITED, function (e) {
+    console.log("Edit event triggered");
+    e.layers.eachLayer(function (layer) {
+        const latlngs = layer.getLatLngs()[0];
+        if (latlngs.length > 0) {
+            latlngs.push(latlngs[0]); // Cerrar el polígono
+        }
+
+        // Convertir a formato GeoJSON [lng, lat] y redondear
+        const geojsonCoords = latlngs.map(latlng => [
+            parseFloat(latlng.lng.toFixed(6)), 
+            parseFloat(latlng.lat.toFixed(6))
+        ]);
+        console.log("Updated GeoJSON coordinates:", geojsonCoords);
+
+        // Actualizar el polígono en avoidPolygons
+        avoidPolygons = avoidPolygons.map(polygon => {
+            const isMatch = polygon[0].every((coord, index) => 
+                parseFloat(coord[0].toFixed(6)) === geojsonCoords[index][0] &&
+                parseFloat(coord[1].toFixed(6)) === geojsonCoords[index][1]
+            );
+            console.log("Comparing polygon:", polygon[0], "with", geojsonCoords, "Match:", isMatch);
+            return isMatch ? [geojsonCoords] : polygon;
+        });
+
+        console.log("Updated avoidPolygons:", avoidPolygons);
+    });
+});
+
+
+map.on('click', function (e) { if (isDrawing) return; // No hacer nada si estamos en modo de dibujo
+
     let identifier;
     
     if (availableIdentifiers.length > 0) {
@@ -195,8 +273,18 @@ $('#isochroneTable tbody').on('mouseleave', 'tr', function() {
 });
 });
 
+function cleanAvoidPolygons() {
+    // Limpiar el array de polígonos evitados
+    avoidPolygons = [];
+}
 
-
+// Convertir avoidPolygons al formato requerido para la API de OpenRouteService
+function getAvoidPolygonsGeoJSON() {
+    return {
+        type: 'MultiPolygon',
+        coordinates: avoidPolygons
+    };
+}
 
 
 
@@ -311,9 +399,13 @@ async function fetchIsochrones(coord, adjustedTimes, pointId, transportMode, tim
                 locations: [coord],
                 range: adjustedTimes,
                 range_type: 'time',
-                attributes: ['total_pop']
+                attributes: ['total_pop'],
+                options: {
+                    avoid_polygons: getAvoidPolygonsGeoJSON()
+                }
             })
-        });
+            })
+        
 
         if (!response.ok) {
             throw new Error(`API request failed with status ${response.status}`);
@@ -410,6 +502,16 @@ function resetMap() {
 
     console.log("Mapa y datos reseteados correctamente.");
 }
+
+function resetPol() {
+    // Limpiar las capas dibujadas en el mapa
+    drawnItems.clearLayers();
+    
+    // Limpiar el array de polígonos evitados
+    avoidPolygons = [];
+}
+
+
 
 function exportData() {
     const geojson = {
